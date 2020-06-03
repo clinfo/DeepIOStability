@@ -1,0 +1,159 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+from torch.utils.data import DataLoader
+
+
+class SimpleMLP(torch.nn.Module):
+    def __init__(self, in_dim, h_dim, out_dim, activation=F.relu):
+        super(SimpleMLP, self).__init__()
+        self.fc_0 = nn.Linear(in_dim, h_dim)
+        self.fc_1 = nn.Linear(h_dim, h_dim)
+        self.fc_2 = nn.Linear(h_dim, out_dim)
+        self.activation = activation
+
+    def forward(self, x):
+        x = self.activation(self.fc_0(x))
+        x = self.activation(self.fc_1(x))
+        x = self.fc_2(x)
+        return x
+
+
+class SimpleV(torch.nn.Module):
+    def __init__(self, in_dim):
+        super(SimpleV, self).__init__()
+        self.in_dim = in_dim
+
+    def forward(self, x):
+        pt1 = torch.zeros((self.in_dim,))
+        pt2 = torch.zeros((self.in_dim,))
+        pt1[0] = 1.0
+        pt2[0] = -1.0
+        v1 = x - pt1
+        v2 = x - pt2
+        v1 = (v1 ** 2).sum(dim=(2,))
+        v2 = (v2 ** 2).sum(dim=(2,))
+        vv = torch.stack([v1, v2])
+        min_vv, _ = torch.min(vv, dim=0)
+        return min_vv
+
+
+class SimpleSystem(torch.nn.Module):
+    def __init__(
+        self,
+        obs_dim,
+        state_dim,
+        input_dim,
+        delta_t=0.1,
+        gamma=1.0,
+        hidden_layer_dim=None,
+    ):
+        super(SimpleSystem, self).__init__()
+        self.obs_dim = obs_dim
+        self.gamma = gamma
+        self.delta_t = delta_t
+        self.state_dim = state_dim
+        self.input_dim = input_dim
+        if hidden_layer_dim is None:
+            hidden_layer_dim = state_dim if state_dim > obs_dim else obs_dim
+
+        self.func_h = SimpleMLP(state_dim, hidden_layer_dim, obs_dim)
+        self.func_f = SimpleMLP(state_dim, hidden_layer_dim, state_dim)
+        self.func_h_inv = SimpleMLP(obs_dim, hidden_layer_dim, state_dim)
+        self.func_g = SimpleMLP(state_dim, hidden_layer_dim, state_dim * input_dim)
+        self.func_v = SimpleV(state_dim)
+
+    def func_g_mat(self, x):
+        if len(x.shape) == 2:  # batch_size x state_dim
+            g = self.func_g(x).reshape((x.shape[0], self.input_dim, self.state_dim))
+        elif len(x.shape) == 3:  # batch_size x time x state_dim
+            g = self.func_g(x).reshape(
+                (x.shape[0], x.shape[1], self.input_dim, self.state_dim)
+            )
+        else:
+            print("error", x.shape)
+        return g
+
+    def compute_HJ(self, x):
+        v = self.func_v(x)
+        # v is independet w.r.t. batch and time
+        dv = torch.autograd.grad(v.sum(), x, create_graph=True)[0]
+
+        hj_dvf = torch.sum(dv * self.func_f(x), dim=-1)
+        h = self.func_h(x)
+        gamma = self.gamma
+        hj_hh = 1 / 2.0 * torch.sum(h * h, dim=-1)
+        g = self.func_g(x).reshape(
+            (x.shape[0], x.shape[1], self.input_dim, self.state_dim)
+        )
+        dv = torch.unsqueeze(dv, -1)
+        gdv = torch.matmul(g, dv)
+        gdv2 = torch.sum(gdv ** 2, dim=(-1, -2))
+        hj_gg = 1 / (2.0 * gamma ** 2) * gdv2
+
+        loss_hj = hj_dvf + hj_hh + hj_gg
+        return loss_hj, [hj_dvf, hj_hh, hj_gg]
+
+    def vecmat_mul(self, vec, mat):
+        vec_m = torch.unsqueeze(vec, -2)
+        o = torch.matmul(vec_m, mat)
+        o = torch.squeeze(o, -2)
+        return o
+
+    def simutlate(self, init_state, batch_size, step, input_=None):
+        current_state = init_state
+        states = []
+        obs_generated = []
+        for t in range(step):
+            ## simulating system
+            if input_ is not None:
+                g = self.func_g_mat(current_state)
+                u = input_[:, t, :]
+                ug = self.vecmat_mul(u, g)
+                next_state = (
+                    current_state + (self.func_f(current_state) + ug) * self.delta_t
+                )
+            else:
+                next_state = current_state + self.func_f(current_state) * self.delta_t
+            o = self.func_h(current_state)
+            ## saving time-point data
+            obs_generated.append(o)
+            states.append(current_state)
+            current_state = next_state
+        obs_generated = torch.stack(obs_generated, dim=1)
+        states = torch.stack(states, dim=1)
+        return states, obs_generated
+
+    def forward_simulate(self, obs, input_, label=None):
+        # obs=torch.tensor(obs, requires_grad=True)
+        step = obs.shape[1]
+        batch_size = obs.shape[0]
+        # init_state=torch.randn(*(batch_size, self.state_dim))
+        init_state = self.func_h_inv(obs[:, 0, :])
+        # init_state=label[:,0,:]
+        states, obs_generated = self.simutlate(init_state, batch_size, step, input_)
+        return states, obs_generated
+
+    def forward_loss(self, obs, input_, states, obs_generated, label):
+        ### observation loss
+        # print("obs(r)",obs_generated.shape)
+        # print("obs",obs.shape)
+        loss_recons = (obs - obs_generated) ** 2
+        if label is not None:
+            loss_states = 0.0 * (states - label) ** 2
+        else:
+            loss_states = 0.0
+        # print("states",states.shape)
+        loss_hj, _ = self.compute_HJ(states)
+        loss_hj = F.relu(loss_hj + 0.1)
+        loss = {
+            "recons": loss_recons.sum(),
+            "states": loss_states.sum(),
+            "HJ": loss_hj.sum(),
+        }
+        return loss
+
+    def forward(self, obs, input_, label=None):
+        states, obs_generated = self.forward_simulate(obs, input_, label)
+        return self.forward_loss(obs, input_, states, obs_generated, label)

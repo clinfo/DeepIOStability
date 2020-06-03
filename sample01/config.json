@@ -1,0 +1,5 @@
+{
+	"data_train":"sample.npy",
+	"learning_rate":0.1,
+	"data_test":"sample.npy"
+}
