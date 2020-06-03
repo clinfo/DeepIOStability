@@ -14,35 +14,33 @@ class DiosDataset(torch.utils.data.Dataset):
         return self.data.num
 
     def __getitem__(self, idx):
-        # out_obs, out_input, out_label=None,None,None
-        out_obs, out_input, out_label = 0, 0, 0
+        # out_obs, out_input, out_state=None,None,None
+        out_obs, out_input, out_state = 0, 0, 0
         out_obs = self.data.obs[idx]
         if self.data.input is not None:
             out_input = self.data.input[idx]
-        if self.data.label is not None:
-            out_label = self.data.label[idx]
+        if self.data.state is not None:
+            out_state = self.data.state[idx]
 
         if self.transform:
             out_obs = self.transform(out_obs)
 
-        return out_obs, out_input, out_label
+        return out_obs, out_input, out_state
 
 
 class DiosData:
-    obs = None
-    obs_mask = None
-    obs_dim = None
-    input = None
-    input_mask = None
-    input_dim = None
-    label = None
-    label_mask = None
-    label_dim = None
-    step = None
-    idx = None
-
     def __init__(self):
-        pass
+        self.obs = None
+        self.obs_mask = None
+        self.obs_dim = None
+        self.input = None
+        self.input_mask = None
+        self.input_dim = None
+        self.state = None
+        self.state_mask = None
+        self.state_dim = None
+        self.step = None
+        self.idx = None
 
     def split(self, rate):
         idx = list(range(self.num))
@@ -52,14 +50,14 @@ class DiosData:
         idx2 = idx[m:]
         data1 = DiosData()
         data2 = DiosData()
-        copy_attrs = ["obs_dim", "input_dim", "label_dim"]
+        copy_attrs = ["obs_dim", "input_dim", "state_dim"]
         split_attrs = [
             "obs",
             "obs_mask",
             "input",
             "input_mask",
-            "label",
-            "label_mask",
+            "state",
+            "state_mask",
             "idx",
         ]
         ## split
@@ -79,7 +77,7 @@ class DiosData:
         return data1, data2
 
     def set_dim_from_data(self):
-        attrs = ["obs", "input", "label"]
+        attrs = ["obs", "input", "state"]
         for attr in attrs:
             val = getattr(self, attr)
             if val is not None:
@@ -118,7 +116,7 @@ def load_all_data(name, config, logger):
         s = data.obs.shape[1]
         data.step = np.array([s] * data.num)
     ###
-    keys = ["input", "label"]
+    keys = ["input", "state"]
     for key in keys:
         filename = name + "." + key + ".npy"
         val = None

@@ -42,7 +42,7 @@ filename="dataset/sample.train.input.npy"
 print("[SAVE]",filename)
 print(data_u.shape)
 np.save(filename,data_u)
-filename="dataset/sample.train.label.npy"
+filename="dataset/sample.train.state.npy"
 print("[SAVE]",filename)
 print(data_x.shape)
 np.save(filename,data_x)

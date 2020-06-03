@@ -137,7 +137,7 @@ def run_train_mode(config, logger):
     # defining dimensions from given data
     print("observation dimension:", train_data.obs_dim)
     print("input dimension:", train_data.input_dim)
-    print("label dimension:", train_data.label_dim)
+    print("state dimension:", train_data.state_dim)
     input_dim = train_data.input_dim
     state_dim = config["dim"]
     obs_dim = train_data.obs_dim

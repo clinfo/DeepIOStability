@@ -1,5 +1,5 @@
 {
-	"epoch":100,
+	"epoch":10,
 	"data_train":"dataset/sample.train",
 	"learning_rate":0.01,
 	"data_test":"dataset/sample.train"

@@ -7,8 +7,9 @@ from dios.data_util import DiosDataset
 
 
 class LossLogger:
-    loss_history = []
-    loss_dict_history = []
+    def __init__(self):
+        self.loss_history=[]
+        self.loss_dict_history=[]
 
     def start_epoch(self):
         self.running_loss = 0
@@ -22,7 +23,7 @@ class LossLogger:
             else:
                 self.running_loss_dict[k] = v
 
-    def stop_epoch(self):
+    def end_epoch(self):
         self.loss_history.append(self.running_loss)
         self.loss_dict_history.append(self.running_loss_dict)
 
@@ -42,18 +43,18 @@ class DiosSSM:
         self.system_model = system_model
 
     def _compute_batch_simulate(self, batch):
-        obs, input_, label = batch
+        obs, input_, state = batch
         metrics = {}
         if input_ is 0:  ## to avoid error (specification of pytorch)
             input_ = None
-        states, obs_generated = self.system_model.forward_simulate(obs, input_, label)
+        state_generated, obs_generated = self.system_model.forward_simulate(obs, input_, state)
         loss_dict = self.system_model.forward_loss(
-            obs, input_, states, obs_generated, label
+            obs, input_, state_generated, obs_generated, state
         )
         loss = 0
         for k, v in loss_dict.items():
             loss += v
-        return loss, loss_dict, states, obs_generated
+        return loss, loss_dict, state_generated, obs_generated
 
     def simulate_with_data(self, valid_data):
         config = self.config
@@ -65,25 +66,25 @@ class DiosSSM:
 
         valid_loss_logger = LossLogger()
         valid_loss_logger.start_epoch()
-        states_list, obs_generated_list = [], []
+        state_generated_list, obs_generated_list = [], []
         for i, batch in enumerate(validloader, 0):
-            loss, loss_dict, states, obs_generated = self._compute_batch_simulate(batch)
-            states_list.append(states)
+            loss, loss_dict, state_generated, obs_generated = self._compute_batch_simulate(batch)
+            state_generated_list.append(state_generated)
             obs_generated_list.append(obs_generated)
             valid_loss_logger.update(loss, loss_dict)
 
         print(valid_loss_logger.get_msg("valid"))
-        valid_loss_logger.stop_epoch()
-        out_states = torch.cat(states_list, dim=0)
+        valid_loss_logger.end_epoch()
+        out_state_generated = torch.cat(state_generated_list, dim=0)
         out_obs_generated = torch.cat(obs_generated_list, dim=0)
-        return valid_loss_logger, out_states, out_obs_generated
+        return valid_loss_logger, out_state_generated, out_obs_generated
 
     def _compute_batch_loss(self, batch):
-        obs, input_, label = batch
+        obs, input_, state = batch
         metrics = {}
         if input_ is 0:  ## to avoid error (specification of pytorch)
             input_ = None
-        loss_dict = self.system_model(obs, input_, label)
+        loss_dict = self.system_model(obs, input_, state)
         loss = 0
         for k, v in loss_dict.items():
             loss += v
@@ -91,9 +92,9 @@ class DiosSSM:
 
     def fit(self, train_data, valid_data):
         config = self.config
+        batch_size = config["batch_size"]
         trainset = DiosDataset(train_data, train=True)
         validset = DiosDataset(valid_data, train=False)
-        batch_size = config["batch_size"]
         trainloader = DataLoader(
             trainset, batch_size=batch_size, shuffle=True, num_workers=2, timeout=10
         )
@@ -125,6 +126,6 @@ class DiosSSM:
                 train_loss_logger.get_msg("train"),
                 valid_loss_logger.get_msg("valid"),
             )
-            train_loss_logger.stop_epoch()
-            valid_loss_logger.stop_epoch()
+            train_loss_logger.end_epoch()
+            valid_loss_logger.end_epoch()
         return train_loss_logger, valid_loss_logger
