@@ -25,10 +25,11 @@ class LossLogger:
             else:
                 self.running_loss_dict[k] = v
 
-    def end_epoch(self):
-        self.running_loss /= self.running_count
-        for k in self.running_loss_dict.keys():
-            self.running_loss_dict[k] /=  self.running_count
+    def end_epoch(self,mean_flag=False):
+        if mean_flag:
+            self.running_loss /= self.running_count
+            for k in self.running_loss_dict.keys():
+                self.running_loss_dict[k] /=  self.running_count
         self.loss_history.append(self.running_loss)
         self.loss_dict_history.append(self.running_loss_dict)
 

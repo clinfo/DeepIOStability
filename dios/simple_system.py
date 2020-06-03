@@ -157,8 +157,10 @@ class SimpleSystem(torch.nn.Module):
         loss_hj, _ = self.compute_HJ(state)
         loss_hj = self.alpha[1]*F.relu(loss_hj + self.c)
         loss = {
-            "recons": loss_recons.sum(dim=(1,2)).mean(dim=0),
-            "HJ": loss_hj.sum(dim=1).mean(dim=0),
+            "recons": loss_recons.sum(),
+            "HJ": loss_hj.sum(),
+            #"recons": loss_recons.sum(dim=(1,2)).mean(dim=0),
+            #"HJ": loss_hj.sum(dim=1).mean(dim=0),
         }
         if with_state_loss:
             if state is not None:
