@@ -47,12 +47,19 @@ class SimpleSystem(torch.nn.Module):
         input_dim,
         delta_t=0.1,
         gamma=1.0,
+        c=0.1,
+        init_state_mode="true_state",
+        alpha=[1.0,1.0,1.0],
         hidden_layer_dim=None,
     ):
         super(SimpleSystem, self).__init__()
         self.obs_dim = obs_dim
         self.gamma = gamma
         self.delta_t = delta_t
+        self.c=c
+        self.init_state_mode="true_state"
+        self.alpha=alpha
+
         self.state_dim = state_dim
         self.input_dim = input_dim
         if hidden_layer_dim is None:
@@ -129,29 +136,34 @@ class SimpleSystem(torch.nn.Module):
         # obs=torch.tensor(obs, requires_grad=True)
         step = obs.shape[1]
         batch_size = obs.shape[0]
-        # init_state=torch.randn(*(batch_size, self.state_dim))
+        if   self.init_state_mode=="true_state":
+            init_state=state[:,0,:]
+        elif self.init_state_mode=="random_state":
+            init_state=torch.randn(*(batch_size, self.state_dim))
+        elif self.init_state_mode=="estimate_state":
+            init_state = self.func_h_inv(obs[:, 0, :])
+        else:
+            print("[ERROR] unknown init_state:",state.init_state_mode)
         init_state = self.func_h_inv(obs[:, 0, :])
-        # init_state=state[:,0,:]
         state_generated, obs_generated = self.simutlate(init_state, batch_size, step, input_)
         return state_generated, obs_generated
 
-    def forward_loss(self, obs, input_, state, obs_generated, state_generated):
+    def forward_loss(self, obs, input_, state, obs_generated, state_generated, with_state_loss=False):
         ### observation loss
         # print("obs(r)",obs_generated.shape)
         # print("obs",obs.shape)
-        loss_recons = (obs - obs_generated) ** 2
-        if state is not None:
-            loss_state = 0.0 * (state - state_generated) ** 2
-        else:
-            loss_state = 0.0
         # print("state",state.shape)
+        loss_recons = self.alpha[0]*(obs - obs_generated) ** 2
         loss_hj, _ = self.compute_HJ(state)
-        loss_hj = F.relu(loss_hj + 0.1)
+        loss_hj = self.alpha[1]*F.relu(loss_hj + self.c)
         loss = {
-            "recons": loss_recons.sum(),
-            "state": loss_state.sum(),
-            "HJ": loss_hj.sum(),
+            "recons": loss_recons.sum(dim=(1,2)).mean(dim=0),
+            "HJ": loss_hj.sum(dim=1).mean(dim=0),
         }
+        if with_state_loss:
+            if state is not None:
+                loss_state = self.alpha[2] * (state - state_generated) ** 2
+                loss["state"]=loss_state.sum(dim=(1,2)).mean(dim=0)
         return loss
 
     def forward(self, obs, input_, state=None):

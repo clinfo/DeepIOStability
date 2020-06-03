@@ -14,9 +14,11 @@ class LossLogger:
     def start_epoch(self):
         self.running_loss = 0
         self.running_loss_dict = {}
+        self.running_count = 0
 
     def update(self, loss, loss_dict):
         self.running_loss += loss
+        self.running_count +=1
         for k, v in loss_dict.items():
             if k in self.running_loss_dict:
                 self.running_loss_dict[k] += v
@@ -24,6 +26,9 @@ class LossLogger:
                 self.running_loss_dict[k] = v
 
     def end_epoch(self):
+        self.running_loss /= self.running_count
+        for k in self.running_loss_dict.keys():
+            self.running_loss_dict[k] /=  self.running_count
         self.loss_history.append(self.running_loss)
         self.loss_dict_history.append(self.running_loss_dict)
 
@@ -72,9 +77,9 @@ class DiosSSM:
             state_generated_list.append(state_generated)
             obs_generated_list.append(obs_generated)
             valid_loss_logger.update(loss, loss_dict)
+        valid_loss_logger.end_epoch()
 
         print(valid_loss_logger.get_msg("valid"))
-        valid_loss_logger.end_epoch()
         out_state_generated = torch.cat(state_generated_list, dim=0)
         out_obs_generated = torch.cat(obs_generated_list, dim=0)
         return valid_loss_logger, out_state_generated, out_obs_generated
@@ -120,12 +125,11 @@ class DiosSSM:
             for i, batch in enumerate(validloader, 0):
                 loss, loss_dict = self._compute_batch_loss(batch)
                 valid_loss_logger.update(loss, loss_dict)
-
+            train_loss_logger.end_epoch()
+            valid_loss_logger.end_epoch()
             print(
                 "[{:4d}] ".format(epoch + 1),
                 train_loss_logger.get_msg("train"),
                 valid_loss_logger.get_msg("valid"),
             )
-            train_loss_logger.end_epoch()
-            valid_loss_logger.end_epoch()
         return train_loss_logger, valid_loss_logger

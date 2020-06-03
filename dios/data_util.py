@@ -1,6 +1,6 @@
 import os
 import numpy as np
-
+import logging
 import torch
 
 
@@ -84,12 +84,14 @@ class DiosData:
                 setattr(self, attr + "_dim", val.shape[2])
 
 
-def np_load(filename, logger):
+def np_load(filename, logger=None):
+    if logger is None: logger=logging.getLogger(__name__)
     logger.info("[LOAD] " + filename)
     return np.load(filename)
 
 
-def load_data(mode, config, logger):
+def load_data(mode, config, logger=None):
+    if logger is None: logger=logging.getLogger(__name__)
     name = config["data_" + mode]
     if os.path.exists(name):
         return load_simple_data(name, config, logger)
@@ -97,7 +99,8 @@ def load_data(mode, config, logger):
         return load_all_data(name, config, logger)
 
 
-def load_all_data(name, config, logger):
+def load_all_data(name, config, logger=None):
+    if logger is None: logger=logging.getLogger(__name__)
     data = DiosData()
     data.obs = np_load(name + ".obs.npy", logger)
     data.num = data.obs.shape[0]
@@ -139,7 +142,8 @@ def load_all_data(name, config, logger):
     return data
 
 
-def load_simple_data(filename, config, logger):
+def load_simple_data(filename, config, logger=None):
+    if logger is None: logger=logging.getLogger(__name__)
     data = DiosData()
     data.obs = np_load(filename, logger)
     data.obs_mask = np.ones_like(data.obs)
