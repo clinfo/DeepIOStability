@@ -48,7 +48,7 @@ class SimpleSystem(torch.nn.Module):
         delta_t=0.1,
         gamma=1.0,
         c=0.1,
-        init_state_mode="true_state",
+        init_state_mode="estimate_state",
         alpha=[1.0,1.0,1.0],
         hidden_layer_dim=None,
     ):
@@ -57,7 +57,7 @@ class SimpleSystem(torch.nn.Module):
         self.gamma = gamma
         self.delta_t = delta_t
         self.c=c
-        self.init_state_mode="true_state"
+        self.init_state_mode=init_state_mode
         self.alpha=alpha
 
         self.state_dim = state_dim

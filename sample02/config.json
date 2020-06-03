@@ -2,6 +2,6 @@
 	"epoch":10,
 	"data_train":"dataset/sample.train",
 	"learning_rate":0.01,
-	"batch_size":80,
+	"batch_size":100,
 	"data_test":"dataset/sample.train"
 }
