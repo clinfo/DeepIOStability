@@ -2,7 +2,7 @@
 
 ### Requirements
 * python3 (> 3.3)
-  * Pytorch (>2.0)
+  * Pytorch
   * joblib
 
 ### Anaconda install
