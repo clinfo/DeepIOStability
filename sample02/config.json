@@ -1,7 +1,8 @@
 {
-	"epoch":10,
+	"epoch":100,
 	"data_train":"dataset/sample.train",
+	"data_test":"dataset/sample.train",
 	"learning_rate":0.01,
 	"batch_size":100,
-	"data_test":"dataset/sample.train"
+	"result_path":"result/"
 }

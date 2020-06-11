@@ -51,6 +51,7 @@ class SimpleSystem(torch.nn.Module):
         init_state_mode="estimate_state",
         alpha=[1.0,1.0,1.0],
         hidden_layer_dim=None,
+        diag_g=True,
     ):
         super(SimpleSystem, self).__init__()
         self.obs_dim = obs_dim
@@ -59,6 +60,7 @@ class SimpleSystem(torch.nn.Module):
         self.c=c
         self.init_state_mode=init_state_mode
         self.alpha=alpha
+        self.diag_g=diag_g
 
         self.state_dim = state_dim
         self.input_dim = input_dim
@@ -69,18 +71,36 @@ class SimpleSystem(torch.nn.Module):
         self.func_f = SimpleMLP(state_dim, hidden_layer_dim, state_dim)
         self.func_h_inv = SimpleMLP(obs_dim, hidden_layer_dim, state_dim)
         self.func_g = SimpleMLP(state_dim, hidden_layer_dim, state_dim * input_dim)
+        self.func_g_vec = SimpleMLP(state_dim, hidden_layer_dim, input_dim)
         self.func_v = SimpleV(state_dim)
 
     def func_g_mat(self, x):
-        if len(x.shape) == 2:  # batch_size x state_dim
-            g = self.func_g(x).reshape((x.shape[0], self.input_dim, self.state_dim))
-        elif len(x.shape) == 3:  # batch_size x time x state_dim
-            g = self.func_g(x).reshape(
-                (x.shape[0], x.shape[1], self.input_dim, self.state_dim)
-            )
+        if self.diag_g:
+            if len(x.shape) == 2:  # batch_size x state_dim
+                g = self.func_g_vec(x)
+                temp = torch.eye(self.input_dim, self.state_dim)
+                temp = temp.reshape((1, self.input_dim, self.state_dim))
+                temp = temp.repeat(x.shape[0], 1, 1)
+                y = temp*g.reshape((x.shape[0], self.input_dim, 1))
+            elif len(x.shape) == 3:  # batch_size x time x state_dim
+                g = self.func_g_vec(x)
+                temp = torch.eye(self.input_dim, self.state_dim)
+                temp = temp.reshape((1, 1, self.input_dim, self.state_dim))
+                temp = temp.repeat(x.shape[0], x.shape[1], 1, 1)
+                y = temp*g.reshape((x.shape[0], x.shape[1], self.input_dim, 1))
+            else:
+                print("error", x.shape)
+            return y
         else:
-            print("error", x.shape)
-        return g
+            if len(x.shape) == 2:  # batch_size x state_dim
+                g = self.func_g(x).reshape((x.shape[0], self.input_dim, self.state_dim))
+            elif len(x.shape) == 3:  # batch_size x time x state_dim
+                g = self.func_g(x).reshape(
+                    (x.shape[0], x.shape[1], self.input_dim, self.state_dim)
+                )
+            else:
+                print("error", x.shape)
+            return g
 
     def compute_HJ(self, x):
         v = self.func_v(x)
@@ -91,9 +111,7 @@ class SimpleSystem(torch.nn.Module):
         h = self.func_h(x)
         gamma = self.gamma
         hj_hh = 1 / 2.0 * torch.sum(h * h, dim=-1)
-        g = self.func_g(x).reshape(
-            (x.shape[0], x.shape[1], self.input_dim, self.state_dim)
-        )
+        g = self.func_g_mat(x)
         dv = torch.unsqueeze(dv, -1)
         gdv = torch.matmul(g, dv)
         gdv2 = torch.sum(gdv ** 2, dim=(-1, -2))
@@ -115,9 +133,11 @@ class SimpleSystem(torch.nn.Module):
         for t in range(step):
             ## simulating system
             if input_ is not None:
+                ###
                 g = self.func_g_mat(current_state)
                 u = input_[:, t, :]
                 ug = self.vecmat_mul(u, g)
+                ###
                 next_state = (
                     current_state + (self.func_f(current_state) + ug) * self.delta_t
                 )
@@ -131,6 +151,16 @@ class SimpleSystem(torch.nn.Module):
         obs_generated = torch.stack(obs_generated, dim=1)
         state = torch.stack(state, dim=1)
         return state, obs_generated
+
+    def forward_l2gain(self, obs_generated, input_):
+        # batch x time x dimension
+        y=(obs_generated**2).sum(dim=2)
+        u=(input_**2).sum(dim=2)
+        y_shift=torch.roll(y, 1, dims=1)
+        u_shift=torch.roll(u, 1, dims=1)
+        y_l2=((y_shift[:,1:]+y[:,:-1])* self.delta_t/2).sum(dim=1)
+        u_l2=((u_shift[:,1:]+u[:,:-1])* self.delta_t/2).sum(dim=1)
+        return y_l2/(u_l2+1.0e-10)
 
     def forward_simulate(self, obs, input_, state=None):
         # obs=torch.tensor(obs, requires_grad=True)
@@ -154,11 +184,25 @@ class SimpleSystem(torch.nn.Module):
         # print("obs",obs.shape)
         # print("state",state.shape)
         loss_recons = self.alpha[0]*(obs - obs_generated) ** 2
-        loss_hj, _ = self.compute_HJ(state)
+        loss_hj, loss_hj_list = self.compute_HJ(state)
         loss_hj = self.alpha[1]*F.relu(loss_hj + self.c)
+        """
         loss = {
             "recons": loss_recons.sum(),
             "HJ": loss_hj.sum(),
+            "*HJ_vf": loss_hj_list[0].sum(),
+            "*HJ_hh": loss_hj_list[1].sum(),
+            "*HJ_gg": loss_hj_list[2].sum(),
+            #"recons": loss_recons.sum(dim=(1,2)).mean(dim=0),
+            #"HJ": loss_hj.sum(dim=1).mean(dim=0),
+        }
+        """
+        loss = {
+            "recons": loss_recons.sum(dim=(1,2)).mean(dim=0),
+            "HJ": loss_hj.sum(dim=1).mean(dim=0),
+            "*HJ_vf": loss_hj_list[0].sum(dim=1).mean(dim=0),
+            "*HJ_hh": loss_hj_list[1].sum(dim=1).mean(dim=0),
+            "*HJ_gg": loss_hj_list[2].sum(dim=1).mean(dim=0),
             #"recons": loss_recons.sum(dim=(1,2)).mean(dim=0),
             #"HJ": loss_hj.sum(dim=1).mean(dim=0),
         }
@@ -168,6 +212,14 @@ class SimpleSystem(torch.nn.Module):
                 loss["state"]=loss_state.sum(dim=(1,2)).mean(dim=0)
         return loss
 
-    def forward(self, obs, input_, state=None):
+    def forward(self, obs, input_, state=None, with_generated=False):
         state_generated, obs_generated = self.forward_simulate(obs, input_, state)
-        return self.forward_loss(obs, input_, state_generated, obs_generated, state)
+        l2_gain=self.forward_l2gain(obs, input_)
+        l2_gain_recons=self.forward_l2gain(obs_generated, input_)
+        loss=self.forward_loss(obs, input_, state_generated, obs_generated, state)
+        loss["*l2"]=l2_gain.mean()
+        loss["*l2_recons"]=l2_gain_recons.mean()
+        if with_generated:
+            return loss, state_generated, obs_generated
+        else:
+            return loss

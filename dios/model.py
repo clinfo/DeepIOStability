@@ -25,7 +25,7 @@ class LossLogger:
             else:
                 self.running_loss_dict[k] = v
 
-    def end_epoch(self,mean_flag=False):
+    def end_epoch(self,mean_flag=True):
         if mean_flag:
             self.running_loss /= self.running_count
             for k in self.running_loss_dict.keys():
@@ -38,10 +38,15 @@ class LossLogger:
         m = "{:s}-loss: {:.3f}".format(prefix, self.running_loss)
         msg.append(m)
         for k, v in self.running_loss_dict.items():
-            m = "{:s}-{:s}-loss: {:.3f}".format(prefix, k, v)
+            if k[0]!="*":
+                m = "{:s}-{:s}-loss: {:.3f}".format(prefix, k, v)
+            else:
+                m = "*{:s}-{:s}: {:.3f}".format(prefix, k[1:], v)
             msg.append(m)
         return "  ".join(msg)
 
+    def get_loss(self):
+            return self.running_loss
 
 class DiosSSM:
     def __init__(self, config, system_model):
@@ -53,13 +58,12 @@ class DiosSSM:
         metrics = {}
         if input_ is 0:  ## to avoid error (specification of pytorch)
             input_ = None
-        state_generated, obs_generated = self.system_model.forward_simulate(obs, input_, state)
-        loss_dict = self.system_model.forward_loss(
-            obs, input_, state_generated, obs_generated, state
-        )
+
+        loss_dict, state_generated, obs_generated = self.system_model.forward(obs, input_, state, with_generated=True)
         loss = 0
         for k, v in loss_dict.items():
-            loss += v
+            if k[0]!="*":
+                loss += v
         return loss, loss_dict, state_generated, obs_generated
 
     def simulate_with_data(self, valid_data):
@@ -93,8 +97,30 @@ class DiosSSM:
         loss_dict = self.system_model(obs, input_, state)
         loss = 0
         for k, v in loss_dict.items():
-            loss += v
+            if k[0]!="*":
+                loss += v
         return loss, loss_dict
+
+    def save(self,path):
+        torch.save(self.system_model.state_dict(), path)
+
+    def load(self,path):
+        state_dict=torch.load(path)
+        self.system_model.load_state_dict(state_dict)
+        self.system_model.eval()
+
+    def save_ckpt(self, epoch, loss, optimizer, path):
+        torch.save({
+            'epoch': epoch,
+            'model_state_dict': self.system_model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'loss': loss,
+            }, path)
+
+    def load_ckpt(self, path):
+        ckpt=torch.load(path)
+        self.system_model.load_state_dict(ckpt["model_state_dict"])
+        self.system_model.eval()
 
     def fit(self, train_data, valid_data):
         config = self.config
@@ -113,6 +139,9 @@ class DiosSSM:
 
         train_loss_logger = LossLogger()
         valid_loss_logger = LossLogger()
+        prev_valid_loss=None
+        best_valid_loss=None
+        patient_count=0
         for epoch in range(config["epoch"]):
             train_loss_logger.start_epoch()
             valid_loss_logger.start_epoch()
@@ -128,9 +157,30 @@ class DiosSSM:
                 valid_loss_logger.update(loss, loss_dict)
             train_loss_logger.end_epoch()
             valid_loss_logger.end_epoch()
+            ## Early stopping
+            l=valid_loss_logger.get_loss()
+            if prev_valid_loss is None or l < prev_valid_loss:
+                patient_count=0
+            else:
+                patient_count+=1
+            prev_valid_loss=l
+            ## check point
+            check_point_flag=False
+            if best_valid_loss is None or l < best_valid_loss:
+                path = config["save_model_path"]+f"/model.{epoch}.checkpoint"
+                self.save_ckpt(epoch, l, optimizer, path)
+                path = config["save_model_path"]+f"/best.checkpoint"
+                self.save_ckpt(epoch, l, optimizer, path)
+                check_point_flag=True
+                best_valid_loss=l
+
+            ## print message
+            ckpt_msg = "*" if check_point_flag else ""
             print(
                 "[{:4d}] ".format(epoch + 1),
                 train_loss_logger.get_msg("train"),
                 valid_loss_logger.get_msg("valid"),
+                "({:2d})".format(patient_count),
+                ckpt_msg,
             )
         return train_loss_logger, valid_loss_logger

@@ -406,12 +406,12 @@ def main():
     # plot_start()
     from matplotlib import pylab as plt
 
-    x = np.load("obs.npy")
-    xg = np.load("obs_gen.npy")
-    z = np.load("states.npy")
+    x = np.load("result/sim/obs.npy")
+    xg = np.load("result/sim/obs_gen.npy")
+    z = np.load("result/sim/states.npy")
     # plot_start()
 
-    idx = 0
+    idx = 10
     z = z[idx, :, :]
     x = x[idx, :, :]
     xg = xg[idx, :, :]

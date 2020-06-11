@@ -53,16 +53,19 @@ def build_config(config):
         if "_npy" in config.keys():
             new_key = key.replace("_npy", "")
             config[new_key] = config[key]
+
+    if "dim" in config:
+        config["state_dim"] = config["dim"]
     if "result_path" in config:
         path = config["result_path"]
         os.makedirs(path, exist_ok=True)
-        config["save_model"] = path + "/model/model.last.ckpt"
+        os.makedirs(path+"/model", exist_ok=True)
+        os.makedirs(path+"/plot", exist_ok=True)
+        os.makedirs(path+"/sim", exist_ok=True)
         config["save_model_path"] = path + "/model"
-        config["save_result_filter"] = path + "/filter.jbl"
         config["save_result_test"] = path + "/test.jbl"
         config["save_result_train"] = path + "/train.jbl"
         config["simulation_path"] = path + "/sim"
-        config["evaluation_output"] = path + "/hyparam.result.json"
         config["load_model"] = path + "/model/model.best.ckpt"
         config["plot_path"] = path + "/plot"
         config["log"] = path + "/log.txt"
@@ -72,11 +75,12 @@ def get_default_config():
     config = {}
     # data and network
     # config["dim"]=None
-    config["dim"] = 2
+    config["state_dim"] = 2
     # training
     config["epoch"] = 10
     config["patience"] = 5
     config["batch_size"] = 100
+    ##
     config["alpha"] = 1.0
     config["beta"] = 1.0
     config["gamma"] = 1.0
@@ -84,9 +88,6 @@ def get_default_config():
     config["curriculum_alpha"] = False
     config["curriculum_beta"] = False
     config["curriculum_gamma"] = False
-    config["epoch_interval_save"] = 10  # 100
-    config["epoch_interval_print"] = 10  # 100
-    config["epoch_interval_eval"] = 1
     config["sampling_tau"] = 10  # 0.1
     config["normal_max_var"] = 5.0  # 1.0
     config["normal_min_var"] = 1.0e-5
@@ -139,7 +140,7 @@ def run_train_mode(config, logger):
     print("input dimension:", train_data.input_dim)
     print("state dimension:", train_data.state_dim)
     input_dim = train_data.input_dim
-    state_dim = config["dim"]
+    state_dim = config["state_dim"]
     obs_dim = train_data.obs_dim
     # defining system
     hidden_layer_dim = 32
@@ -148,15 +149,47 @@ def run_train_mode(config, logger):
     # training NN from data
     model = DiosSSM(config, sys)
     model.fit(train_data, valid_data)
+    model.load_ckpt(config["save_model_path"]+"/best.checkpoint")
 
     loss, states, obs_gen = model.simulate_with_data(valid_data)
-    np.save("obs.npy", valid_data.obs)
-    np.save("obs_gen.npy", obs_gen.to("cpu").detach().numpy().copy())
-    np.save("states.npy", states.to("cpu").detach().numpy().copy())
-
+    save_simulation(config,valid_data,states,obs_gen)
+    
+def save_simulation(config,data,states,obs_gen):
     if "simulation_path" in config:
-        os.path.makedirs(config["simulation_path"], exist_ok=True)
-        config["simulation_path"]
+        os.makedirs(config["simulation_path"], exist_ok=True)
+        filename=config["simulation_path"]+"/obs.npy"
+        print("[LOAD]", filename)
+        np.save(filename, data.obs)
+        filename=config["simulation_path"]+"/obs_gen.npy"
+        print("[LOAD]", filename)
+        np.save(filename, obs_gen.to("cpu").detach().numpy().copy())
+        filename=config["simulation_path"]+"/states.npy"
+        print("[LOAD]", filename)
+        np.save(filename, states.to("cpu").detach().numpy().copy())
+
+
+def run_pred_mode(config, logger):
+    logger.info("... loading data")
+    all_data = load_data(mode="test", config=config, logger=logger)
+    print("data_size:", all_data.num)
+
+    # defining dimensions from given data
+    print("observation dimension:", all_data.obs_dim)
+    print("input dimension:", all_data.input_dim)
+    print("state dimension:", all_data.state_dim)
+    input_dim = all_data.input_dim
+    state_dim = config["state_dim"]
+    obs_dim = all_data.obs_dim
+    # defining system
+    hidden_layer_dim = 32
+    sys = SimpleSystem(obs_dim, state_dim, input_dim, hidden_layer_dim=hidden_layer_dim)
+
+    # training NN from data
+    model = DiosSSM(config, sys)
+    model.load_ckpt(config["load_model"])
+
+    loss, states, obs_gen = model.simulate_with_data(all_data)
+    save_simulation(config,all_data,states,obs_gen)
 
 
 def main():
@@ -223,7 +256,7 @@ def main():
         elif mode == "infer" or mode == "test":
             if args.model is not None:
                 config["load_model"] = args.model
-            run_test_mode(sess, config)
+            run_pred_mode(config, logger)
         elif mode == "filter":
             if args.model is not None:
                 config["load_model"] = args.model
