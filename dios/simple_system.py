@@ -172,6 +172,8 @@ class SimpleSystem(torch.nn.Module):
             init_state=torch.randn(*(batch_size, self.state_dim))
         elif self.init_state_mode=="estimate_state":
             init_state = self.func_h_inv(obs[:, 0, :])
+        elif self.init_state_mode=="zero_state":
+            init_state=torch.zeros((batch_size, self.state_dim))
         else:
             print("[ERROR] unknown init_state:",state.init_state_mode)
         init_state = self.func_h_inv(obs[:, 0, :])
@@ -186,17 +188,6 @@ class SimpleSystem(torch.nn.Module):
         loss_recons = self.alpha[0]*(obs - obs_generated) ** 2
         loss_hj, loss_hj_list = self.compute_HJ(state)
         loss_hj = self.alpha[1]*F.relu(loss_hj + self.c)
-        """
-        loss = {
-            "recons": loss_recons.sum(),
-            "HJ": loss_hj.sum(),
-            "*HJ_vf": loss_hj_list[0].sum(),
-            "*HJ_hh": loss_hj_list[1].sum(),
-            "*HJ_gg": loss_hj_list[2].sum(),
-            #"recons": loss_recons.sum(dim=(1,2)).mean(dim=0),
-            #"HJ": loss_hj.sum(dim=1).mean(dim=0),
-        }
-        """
         loss = {
             "recons": loss_recons.sum(dim=(1,2)).mean(dim=0),
             "HJ": loss_hj.sum(dim=1).mean(dim=0),
@@ -209,7 +200,7 @@ class SimpleSystem(torch.nn.Module):
         if with_state_loss:
             if state is not None:
                 loss_state = self.alpha[2] * (state - state_generated) ** 2
-                loss["state"]=loss_state.sum(dim=(1,2)).mean(dim=0)
+                loss["*state"]=loss_state.sum(dim=(1,2)).mean(dim=0)
         return loss
 
     def forward(self, obs, input_, state=None, with_generated=False):

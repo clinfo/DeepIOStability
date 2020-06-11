@@ -81,10 +81,32 @@ def get_default_config():
     config["patience"] = 5
     config["batch_size"] = 100
     ##
+    config["learning_rate"] = 1.0e-2
+    # dataset
+    config["train_valid_ratio"] = 0.2
+    config["data_train"] = None
+    config["data_test"] = None
+    # save/load model
+    config["save_model_path"] = None
+    config["load_model"] = None
+    config["save_result_train"] = None
+    config["save_result_test"] = None
+    config["save_result_filter"] = None
+
+    config["delta_t"]=0.1
+    config["gamma"]=1.0
+    config["c"]=0.1
+    config["init_state_mode"]="estimate_state"
+    config["alpha_recons"]=1.0
+    config["alpha_HJ"]=1.0
+    config["diag_g"]=True
+      
+
+    """
     config["alpha"] = 1.0
     config["beta"] = 1.0
     config["gamma"] = 1.0
-    config["learning_rate"] = 1.0e-2
+    ##
     config["curriculum_alpha"] = False
     config["curriculum_beta"] = False
     config["curriculum_gamma"] = False
@@ -95,18 +117,8 @@ def get_default_config():
     config["pfilter_sample_size"] = 10
     config["pfilter_proposal_sample_size"] = 1000
     config["pfilter_save_sample_num"] = 100
-    # dataset
-    config["train_valid_ratio"] = 0.2
-    config["data_train"] = None
-    config["data_test"] = None
     config["label"] = "multinominal"
     config["task"] = "generative"
-    # save/load model
-    config["save_model_path"] = None
-    config["load_model"] = None
-    config["save_result_train"] = None
-    config["save_result_test"] = None
-    config["save_result_filter"] = None
     # config["state_type"]="discrete"
     config["state_type"] = "normal"
     config["sampling_type"] = "none"
@@ -125,6 +137,7 @@ def get_default_config():
     #
     config["field_grid_num"] = 30
     config["field_grid_dim"] = None
+    """
     # generate json
     return config
 
@@ -144,8 +157,15 @@ def run_train_mode(config, logger):
     obs_dim = train_data.obs_dim
     # defining system
     hidden_layer_dim = 32
-    sys = SimpleSystem(obs_dim, state_dim, input_dim, hidden_layer_dim=hidden_layer_dim)
-
+    sys = SimpleSystem(obs_dim, state_dim, input_dim,
+            hidden_layer_dim=hidden_layer_dim,
+            delta_t=config["delta_t"],
+            gamma=config["gamma"],
+            c=config["c"],
+            init_state_mode=config["init_state_mode"],
+            alpha=[config["alpha_recons"],config["alpha_HJ"],1.0],
+            diag_g=config["diag_g"],
+            )
     # training NN from data
     model = DiosSSM(config, sys)
     model.fit(train_data, valid_data)
@@ -182,8 +202,15 @@ def run_pred_mode(config, logger):
     obs_dim = all_data.obs_dim
     # defining system
     hidden_layer_dim = 32
-    sys = SimpleSystem(obs_dim, state_dim, input_dim, hidden_layer_dim=hidden_layer_dim)
-
+    sys = SimpleSystem(obs_dim, state_dim, input_dim,
+            hidden_layer_dim=hidden_layer_dim,
+            delta_t=config["delta_t"],
+            gamma=config["gamma"],
+            c=config["c"],
+            init_state_mode=config["init_state_mode"],
+            alpha=[config["alpha_recons"],config["alpha_HJ"],1.0],
+            diag_g=config["diag_g"],
+            )
     # training NN from data
     model = DiosSSM(config, sys)
     model.load_ckpt(config["load_model"])
