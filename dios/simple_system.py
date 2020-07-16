@@ -21,17 +21,19 @@ class SimpleMLP(torch.nn.Module):
 
 
 class SimpleV(torch.nn.Module):
-    def __init__(self, in_dim):
+    def __init__(self, in_dim, device=None):
         super(SimpleV, self).__init__()
         self.in_dim = in_dim
+        self.pt1 = torch.zeros((self.in_dim,))
+        self.pt2 = torch.zeros((self.in_dim,))
+        self.pt1[0] = 1.0
+        self.pt2[0] = -1.0
+        self.pt1=self.pt1.to(device)
+        self.pt2=self.pt2.to(device)
 
     def forward(self, x):
-        pt1 = torch.zeros((self.in_dim,))
-        pt2 = torch.zeros((self.in_dim,))
-        pt1[0] = 1.0
-        pt2[0] = -1.0
-        v1 = x - pt1
-        v2 = x - pt2
+        v1 = x - self.pt1
+        v2 = x - self.pt2
         v1 = (v1 ** 2).sum(dim=(2,))
         v2 = (v2 ** 2).sum(dim=(2,))
         vv = torch.stack([v1, v2])
@@ -52,6 +54,7 @@ class SimpleSystem(torch.nn.Module):
         alpha=[1.0,1.0,1.0],
         hidden_layer_dim=None,
         diag_g=True,
+        device=None,
     ):
         super(SimpleSystem, self).__init__()
         self.obs_dim = obs_dim
@@ -72,19 +75,20 @@ class SimpleSystem(torch.nn.Module):
         self.func_h_inv = SimpleMLP(obs_dim, hidden_layer_dim, state_dim)
         self.func_g = SimpleMLP(state_dim, hidden_layer_dim, state_dim * input_dim)
         self.func_g_vec = SimpleMLP(state_dim, hidden_layer_dim, input_dim)
-        self.func_v = SimpleV(state_dim)
+        self.func_v = SimpleV(state_dim,device=device)
+        self._input_state_eye = torch.eye(self.input_dim, self.state_dim,device=device)
 
     def func_g_mat(self, x):
         if self.diag_g:
             if len(x.shape) == 2:  # batch_size x state_dim
                 g = self.func_g_vec(x)
-                temp = torch.eye(self.input_dim, self.state_dim)
+                temp = self._input_state_eye
                 temp = temp.reshape((1, self.input_dim, self.state_dim))
                 temp = temp.repeat(x.shape[0], 1, 1)
                 y = temp*g.reshape((x.shape[0], self.input_dim, 1))
             elif len(x.shape) == 3:  # batch_size x time x state_dim
                 g = self.func_g_vec(x)
-                temp = torch.eye(self.input_dim, self.state_dim)
+                temp = self._input_state_eye
                 temp = temp.reshape((1, 1, self.input_dim, self.state_dim))
                 temp = temp.repeat(x.shape[0], x.shape[1], 1, 1)
                 y = temp*g.reshape((x.shape[0], x.shape[1], self.input_dim, 1))
@@ -167,16 +171,15 @@ class SimpleSystem(torch.nn.Module):
         step = obs.shape[1]
         batch_size = obs.shape[0]
         if   self.init_state_mode=="true_state":
-            init_state=state[:,0,:]
+            init_state =state[:,0,:]
         elif self.init_state_mode=="random_state":
-            init_state=torch.randn(*(batch_size, self.state_dim))
+            init_state =torch.randn(*(batch_size, self.state_dim))
         elif self.init_state_mode=="estimate_state":
             init_state = self.func_h_inv(obs[:, 0, :])
         elif self.init_state_mode=="zero_state":
-            init_state=torch.zeros((batch_size, self.state_dim))
+            init_state =torch.zeros((batch_size, self.state_dim))
         else:
             print("[ERROR] unknown init_state:",state.init_state_mode)
-        init_state = self.func_h_inv(obs[:, 0, :])
         state_generated, obs_generated = self.simutlate(init_state, batch_size, step, input_)
         return state_generated, obs_generated
 
@@ -185,22 +188,25 @@ class SimpleSystem(torch.nn.Module):
         # print("obs(r)",obs_generated.shape)
         # print("obs",obs.shape)
         # print("state",state.shape)
-        loss_recons = self.alpha[0]*(obs - obs_generated) ** 2
+        loss_recons = (obs - obs_generated) ** 2
         loss_hj, loss_hj_list = self.compute_HJ(state)
-        loss_hj = self.alpha[1]*F.relu(loss_hj + self.c)
+        loss_hj = F.relu(loss_hj + self.c)
+        loss_sum_recons=loss_recons.sum(dim=(1,2)).mean(dim=0)
+        loss_sum_hj=loss_hj.sum(dim=1).mean(dim=0)
         loss = {
-            "recons": loss_recons.sum(dim=(1,2)).mean(dim=0),
-            "HJ": loss_hj.sum(dim=1).mean(dim=0),
+            "recons": self.alpha[0]*loss_sum_recons,
+            "HJ": self.alpha[1]*loss_sum_hj,
+            "*recons": loss_sum_recons,
+            "*HJ": loss_sum_hj,
             "*HJ_vf": loss_hj_list[0].sum(dim=1).mean(dim=0),
             "*HJ_hh": loss_hj_list[1].sum(dim=1).mean(dim=0),
             "*HJ_gg": loss_hj_list[2].sum(dim=1).mean(dim=0),
-            #"recons": loss_recons.sum(dim=(1,2)).mean(dim=0),
-            #"HJ": loss_hj.sum(dim=1).mean(dim=0),
         }
         if with_state_loss:
             if state is not None:
-                loss_state = self.alpha[2] * (state - state_generated) ** 2
-                loss["*state"]=loss_state.sum(dim=(1,2)).mean(dim=0)
+                loss_state = (state - state_generated) ** 2
+                loss_sum_state = loss_state.sum(dim=(1,2)).mean(dim=0)
+                loss["*state"] = self.alpha[2] * loss_sum_state
         return loss
 
     def forward(self, obs, input_, state=None, with_generated=False):

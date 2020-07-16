@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from dios.data_util import DiosDataset
+import json
 
 
 class LossLogger:
@@ -17,13 +18,13 @@ class LossLogger:
         self.running_count = 0
 
     def update(self, loss, loss_dict):
-        self.running_loss += loss
+        self.running_loss += loss.detach().to('cpu')
         self.running_count +=1
         for k, v in loss_dict.items():
             if k in self.running_loss_dict:
-                self.running_loss_dict[k] += v
+                self.running_loss_dict[k] += v.detach().to('cpu')
             else:
-                self.running_loss_dict[k] = v
+                self.running_loss_dict[k] = v.detach().to('cpu')
 
     def end_epoch(self,mean_flag=True):
         if mean_flag:
@@ -33,15 +34,23 @@ class LossLogger:
         self.loss_history.append(self.running_loss)
         self.loss_dict_history.append(self.running_loss_dict)
 
-    def get_msg(self, prefix="train"):
-        msg = []
-        m = "{:s}-loss: {:.3f}".format(prefix, self.running_loss)
-        msg.append(m)
+    def get_dict(self, prefix="train"):
+        result={}
+        key="{:s}-loss".format(prefix)
+        val=self.running_loss
+        result[key]=float(val)
         for k, v in self.running_loss_dict.items():
             if k[0]!="*":
-                m = "{:s}-{:s}-loss: {:.3f}".format(prefix, k, v)
+                m = "{:s}-{:s}-loss".format(prefix, k)
             else:
-                m = "*{:s}-{:s}: {:.3f}".format(prefix, k[1:], v)
+                m = "*{:s}-{:s}".format(prefix, k[1:])
+            result[m]=float(v)
+        return result
+
+    def get_msg(self, prefix="train"):
+        msg = []
+        for key,val in self.get_dict(prefix=prefix).items():
+            m = "{:s}: {:.3f}".format(key,val)
             msg.append(m)
         return "  ".join(msg)
 
@@ -49,9 +58,11 @@ class LossLogger:
             return self.running_loss
 
 class DiosSSM:
-    def __init__(self, config, system_model):
+    def __init__(self, config, system_model, device):
         self.config = config
-        self.system_model = system_model
+        self.system_model = system_model.to(device)
+        self.device=device
+
 
     def _compute_batch_simulate(self, batch):
         obs, input_, state = batch
@@ -71,17 +82,20 @@ class DiosSSM:
         validset = DiosDataset(valid_data, train=False)
         batch_size = config["batch_size"]
         validloader = DataLoader(
-            validset, batch_size=batch_size, shuffle=False, num_workers=2, timeout=10
+            validset, batch_size=batch_size, shuffle=False, num_workers=4, timeout=20
         )
 
         valid_loss_logger = LossLogger()
         valid_loss_logger.start_epoch()
         state_generated_list, obs_generated_list = [], []
         for i, batch in enumerate(validloader, 0):
+            batch=[el.to(self.device) for el in batch]
             loss, loss_dict, state_generated, obs_generated = self._compute_batch_simulate(batch)
             state_generated_list.append(state_generated)
             obs_generated_list.append(obs_generated)
             valid_loss_logger.update(loss, loss_dict)
+            del loss
+            del loss_dict
         valid_loss_logger.end_epoch()
 
         print(valid_loss_logger.get_msg("valid"))
@@ -128,10 +142,10 @@ class DiosSSM:
         trainset = DiosDataset(train_data, train=True)
         validset = DiosDataset(valid_data, train=False)
         trainloader = DataLoader(
-            trainset, batch_size=batch_size, shuffle=True, num_workers=2, timeout=10
+            trainset, batch_size=batch_size, shuffle=True, num_workers=4, timeout=20
         )
         validloader = DataLoader(
-            validset, batch_size=batch_size, shuffle=False, num_workers=2, timeout=10
+            validset, batch_size=batch_size, shuffle=False, num_workers=4, timeout=20
         )
         optimizer = optim.Adam(
             self.system_model.parameters(), lr=config["learning_rate"], weight_decay=0.3
@@ -147,12 +161,16 @@ class DiosSSM:
             valid_loss_logger.start_epoch()
             for i, batch in enumerate(trainloader, 0):
                 optimizer.zero_grad()
+                batch=[el.to(self.device) for el in batch]
                 loss, loss_dict = self._compute_batch_loss(batch)
                 train_loss_logger.update(loss, loss_dict)
                 loss.backward()
                 optimizer.step()
+                del loss
+                del loss_dict
 
             for i, batch in enumerate(validloader, 0):
+                batch=[el.to(self.device) for el in batch]
                 loss, loss_dict = self._compute_batch_loss(batch)
                 valid_loss_logger.update(loss, loss_dict)
             train_loss_logger.end_epoch()
@@ -171,6 +189,17 @@ class DiosSSM:
                 self.save_ckpt(epoch, l, optimizer, path)
                 path = config["save_model_path"]+f"/best.checkpoint"
                 self.save_ckpt(epoch, l, optimizer, path)
+                path = config["save_model_path"]+f"/best.result.json"
+                fp = open(path, "w")
+                res=train_loss_logger.get_dict("train")
+                res.update(valid_loss_logger.get_dict("valid"))
+                json.dump(
+                    res,
+                    fp,
+                    ensure_ascii=False,
+                    indent=4,
+                    sort_keys=True,
+                )
                 check_point_flag=True
                 best_valid_loss=l
 

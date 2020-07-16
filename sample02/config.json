@@ -3,7 +3,7 @@
 	"data_train":"dataset/sample.train",
 	"data_test":"dataset/sample.train",
 	"learning_rate":0.01,
-	"alpha_HJ":0.0,
+	"alpha_HJ":1.0,
 	"batch_size":100,
 	"result_path":"result/"
 }

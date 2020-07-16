@@ -26,7 +26,6 @@ import torch.nn.functional as F
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
-
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
@@ -66,7 +65,7 @@ def build_config(config):
         config["save_result_test"] = path + "/test.jbl"
         config["save_result_train"] = path + "/train.jbl"
         config["simulation_path"] = path + "/sim"
-        config["load_model"] = path + "/model/model.best.ckpt"
+        config["load_model"] = path + "/model/best.checkpoint"
         config["plot_path"] = path + "/plot"
         config["log"] = path + "/log.txt"
 
@@ -101,7 +100,9 @@ def get_default_config():
     config["alpha_HJ"]=1.0
     config["diag_g"]=True
       
-
+    config["hidden_layer_dim01"] = 32
+    config["hidden_layer_dim02"] = None
+    config["hidden_layer_dim03"] = None
     """
     config["alpha"] = 1.0
     config["beta"] = 1.0
@@ -155,8 +156,15 @@ def run_train_mode(config, logger):
     input_dim = train_data.input_dim
     state_dim = config["state_dim"]
     obs_dim = train_data.obs_dim
+    #
+    if torch.cuda.is_available():
+        device = 'cuda'
+        print("device: cuda")
+    else:
+        device = 'cpu'
+        print("device: cpu")
     # defining system
-    hidden_layer_dim = 32
+    hidden_layer_dim = config["hidden_layer_dim01"]
     sys = SimpleSystem(obs_dim, state_dim, input_dim,
             hidden_layer_dim=hidden_layer_dim,
             delta_t=config["delta_t"],
@@ -165,14 +173,19 @@ def run_train_mode(config, logger):
             init_state_mode=config["init_state_mode"],
             alpha=[config["alpha_recons"],config["alpha_HJ"],1.0],
             diag_g=config["diag_g"],
+            device=device
             )
     # training NN from data
-    model = DiosSSM(config, sys)
-    model.fit(train_data, valid_data)
-    model.load_ckpt(config["save_model_path"]+"/best.checkpoint")
+    model = DiosSSM(config, sys, device=device)
+    train_loss,valid_loss=model.fit(train_data, valid_data)
+    joblib.dump(train_loss, config["save_model_path"]+"/train_loss.pkl")
+    joblib.dump(valid_loss, config["save_model_path"]+"/valid_loss.pkl")
 
+    model.load_ckpt(config["save_model_path"]+"/best.checkpoint")
     loss, states, obs_gen = model.simulate_with_data(valid_data)
     save_simulation(config,valid_data,states,obs_gen)
+    joblib.dump(loss, config["simulation_path"]+"/last_loss.pkl")
+    
     
 def save_simulation(config,data,states,obs_gen):
     if "simulation_path" in config:
@@ -201,7 +214,7 @@ def run_pred_mode(config, logger):
     state_dim = config["state_dim"]
     obs_dim = all_data.obs_dim
     # defining system
-    hidden_layer_dim = 32
+    hidden_layer_dim = config["hidden_layer_dim01"]
     sys = SimpleSystem(obs_dim, state_dim, input_dim,
             hidden_layer_dim=hidden_layer_dim,
             delta_t=config["delta_t"],
@@ -247,14 +260,28 @@ def main():
         help="constraint gpus (default: all) (e.g. --gpu 0,2)",
     )
     parser.add_argument("--profile", action="store_true", help="")
+    ## config
+    for key, val in get_default_config().items():
+        if type(val) is int:
+            parser.add_argument("--"+key, type=int, default=val, help="[config integer]")
+        elif type(val) is float:
+            parser.add_argument("--"+key, type=float, default=val, help="[config float]")
+        elif type(val) is bool:
+            parser.add_argument("--"+key, action="store_true", help="[config bool]")
+        else:
+            parser.add_argument("--"+key, type=str, default=val, help="[config string]")
     args = parser.parse_args()
     # config
     config = get_default_config()
+    for key, val in get_default_config().items():
+        config[key]=getattr(args,key)
+    # 
     if args.config is None:
         if not args.no_config:
             parser.print_help()
             quit()
     else:
+        print("[LOAD]",args.config)
         fp = open(args.config, "r")
         config.update(json.load(fp))
     build_config(config)

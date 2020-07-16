@@ -84,10 +84,18 @@ class DiosData:
                 setattr(self, attr + "_dim", val.shape[2])
 
 
-def np_load(filename, logger=None):
+def np_load(filename, logger=None, dtype=None, shape_num=None):
     if logger is None: logger=logging.getLogger(__name__)
     logger.info("[LOAD] " + filename)
-    return np.load(filename)
+    obj=np.load(filename)
+    if dtype is not None:
+        if obj.dtype != dtype:
+            obj=obj.astype(dtype)
+    if shape_num is not None:
+        n=len(obj.shape)
+        for _ in range(shape_num-n):
+            obj=np.expand_dims(obj, -1)
+    return obj
 
 
 def load_data(mode, config, logger=None):
@@ -102,13 +110,13 @@ def load_data(mode, config, logger=None):
 def load_all_data(name, config, logger=None):
     if logger is None: logger=logging.getLogger(__name__)
     data = DiosData()
-    data.obs = np_load(name + ".obs.npy", logger)
+    data.obs = np_load(name + ".obs.npy", logger, dtype=np.float32, shape_num=3)
     data.num = data.obs.shape[0]
     data.idx = np.array(list(range(data.num)))
     ###
     filename = name + ".obs_mask.npy"
     if os.path.exists(filename):
-        data.obs_mask = np_load(filename, logger)
+        data.obs_mask = np_load(filename, logger, dtype=np.float32, shape_num=3)
     else:
         data.obs_mask = np.ones_like(data.obs)
     ###
@@ -124,7 +132,7 @@ def load_all_data(name, config, logger=None):
         filename = name + "." + key + ".npy"
         val = None
         if os.path.exists(filename):
-            val = np_load(filename, logger)
+            val = np_load(filename, logger, dtype=np.float32, shape_num=3)
             setattr(data, key, val)
             valid_flag = True
         else:
@@ -132,7 +140,7 @@ def load_all_data(name, config, logger=None):
         ###
         filename = name + "." + key + "_mask.npy"
         if os.path.exists(filename):
-            setattr(data, key + "_mask", np_load(filename, logger))
+            setattr(data, key + "_mask", np_load(filename, logger, dtype=np.float32, shape_num=3))
         if val is not None:
             setattr(data, key + "_mask", np.ones_like(val))
         else:
@@ -145,7 +153,7 @@ def load_all_data(name, config, logger=None):
 def load_simple_data(filename, config, logger=None):
     if logger is None: logger=logging.getLogger(__name__)
     data = DiosData()
-    data.obs = np_load(filename, logger)
+    data.obs = np_load(filename, logger, dtype=np.float32, shape_num=3)
     data.obs_mask = np.ones_like(data.obs)
     data.num = data.obs.shape[0]
     data.idx = np.array(list(range(data.num)))

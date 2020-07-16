@@ -19,7 +19,8 @@ setuptools.setup(
     entry_points={
         "console_scripts": [
             "dios= dios.dios:main",
-            "dios-plot = dios.dios_plot:main",
+            "dios-opt= dios.opt:main",
+            "dios-plot = dios.plot:main",
             "dios-field-plot = dios.dios_field_plot:main",
             "dios-map = dios.mapping:main",
         ],

@@ -404,34 +404,59 @@ def plot_start():
 
 def main():
     # plot_start()
-    from matplotlib import pylab as plt
-
-    x = np.load("result/sim/obs.npy")
-    xg = np.load("result/sim/obs_gen.npy")
-    z = np.load("result/sim/states.npy")
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--random", type=int, default=10, help="config json file"
+    )
+    parser.add_argument(
+        "--save_config", type=str, default=None, nargs="?", help="config json file"
+    )
+    parser.add_argument("--no-config", action="store_true", help="use default setting")
+    args = parser.parse_args()
+    
+    ## config
+    
+    filename="result/sim/obs.npy"
+    print("[LOAD]",filename)
+    data_x = np.load(filename)
+    filename="result/sim/obs_gen.npy"
+    print("[LOAD]",filename)
+    data_xg = np.load(filename)
+    filename="result/sim/states.npy"
+    print("[LOAD]",filename)
+    data_z = np.load(filename)
+    n=data_x.shape[0]
+    ##
+    print("x       :",data_x.shape)
+    print("x_recons:",data_xg.shape)
+    print("z       :",data_z.shape)
+    print("#data   :",n)
     # plot_start()
+    idx_all=np.arange(n)
+    np.random.shuffle(idx_all)
+    for idx in idx_all[:args.random]:
+        print("### index =",idx)
+        z = data_z[idx, :, :]
+        x = data_x[idx, :, :]
+        xg = data_xg[idx, :, :]
+        fig = plt.figure()
+        plt.subplot(2, 1, 1)
+        plot_dim = z.shape[1]
+        for i in range(plot_dim):
+            plt.plot(z[:, i], label="dim-" + str(i) + "/" + str(z.shape[1]))
+        plt.legend()
+        plt.subplot(2, 1, 2)
+        plot_dim = x.shape[1]
+        for i in range(plot_dim):
+            plt.plot(x[:, i], label="x dim-" + str(i) + "/" + str(x.shape[1]))
+        plot_dim = xg.shape[1]
+        for i in range(plot_dim):
+            plt.plot(xg[:, i], label="recons dim-" + str(i) + "/" + str(x.shape[1]))
 
-    idx = 10
-    z = z[idx, :, :]
-    x = x[idx, :, :]
-    xg = xg[idx, :, :]
-    fig = plt.figure()
-    plt.subplot(2, 1, 1)
-    plot_dim = z.shape[1]
-    for i in range(plot_dim):
-        plt.plot(z[:, i], label="dim-" + str(i) + "/" + str(z.shape[1]))
-    plt.legend()
-    plt.subplot(2, 1, 2)
-    plot_dim = x.shape[1]
-    for i in range(plot_dim):
-        plt.plot(x[:, i], label="x dim-" + str(i) + "/" + str(x.shape[1]))
-    plot_dim = xg.shape[1]
-    for i in range(plot_dim):
-        plt.plot(xg[:, i], label="recons dim-" + str(i) + "/" + str(x.shape[1]))
-
-    plt.legend()
-    plt.savefig("fig.png")
-    print("!!!")
+        plt.legend()
+        filename="fig{:04d}.png".format(idx)
+        print("[SAVE]",filename)
+        plt.savefig(filename)
 
 
 if __name__ == "__main__":
