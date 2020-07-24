@@ -5,6 +5,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from dios.data_util import DiosDataset
 import json
+import numpy as np
 
 
 class LossLogger:
@@ -103,12 +104,12 @@ class DiosSSM:
         out_obs_generated = torch.cat(obs_generated_list, dim=0)
         return valid_loss_logger, out_state_generated, out_obs_generated
 
-    def _compute_batch_loss(self, batch):
+    def _compute_batch_loss(self, batch, epoch):
         obs, input_, state = batch
         metrics = {}
         if input_ is 0:  ## to avoid error (specification of pytorch)
             input_ = None
-        loss_dict = self.system_model(obs, input_, state)
+        loss_dict = self.system_model(obs, input_, state, epoch=epoch)
         loss = 0
         for k, v in loss_dict.items():
             if k[0]!="*":
@@ -162,7 +163,7 @@ class DiosSSM:
             for i, batch in enumerate(trainloader, 0):
                 optimizer.zero_grad()
                 batch=[el.to(self.device) for el in batch]
-                loss, loss_dict = self._compute_batch_loss(batch)
+                loss, loss_dict = self._compute_batch_loss(batch,epoch)
                 train_loss_logger.update(loss, loss_dict)
                 loss.backward()
                 optimizer.step()
@@ -171,12 +172,14 @@ class DiosSSM:
 
             for i, batch in enumerate(validloader, 0):
                 batch=[el.to(self.device) for el in batch]
-                loss, loss_dict = self._compute_batch_loss(batch)
+                loss, loss_dict = self._compute_batch_loss(batch,epoch)
                 valid_loss_logger.update(loss, loss_dict)
             train_loss_logger.end_epoch()
             valid_loss_logger.end_epoch()
             ## Early stopping
             l=valid_loss_logger.get_loss()
+            if np.isnan(l):
+                break
             if prev_valid_loss is None or l < prev_valid_loss:
                 patient_count=0
             else:

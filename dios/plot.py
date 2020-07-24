@@ -409,24 +409,32 @@ def main():
         "--random", type=int, default=10, help="config json file"
     )
     parser.add_argument(
-        "--save_config", type=str, default=None, nargs="?", help="config json file"
+            "--config", type=str, default=None, nargs="?", help="config json file"
     )
     parser.add_argument("--no-config", action="store_true", help="use default setting")
     args = parser.parse_args()
     
+    result_path="result"
     ## config
+    if args.config:
+        config=json.load(open(args.config))
+        result_path=config["result_path"]
     
-    filename="result/sim/obs.npy"
+    filename=result_path+"/sim/input.npy"
+    print("[LOAD]",filename)
+    data_u = np.load(filename)
+    filename=result_path+"/sim/obs.npy"
     print("[LOAD]",filename)
     data_x = np.load(filename)
-    filename="result/sim/obs_gen.npy"
+    filename=result_path+"/sim/obs_gen.npy"
     print("[LOAD]",filename)
     data_xg = np.load(filename)
-    filename="result/sim/states.npy"
+    filename=result_path+"/sim/states.npy"
     print("[LOAD]",filename)
     data_z = np.load(filename)
     n=data_x.shape[0]
     ##
+    print("u       :",data_u.shape)
     print("x       :",data_x.shape)
     print("x_recons:",data_xg.shape)
     print("z       :",data_z.shape)
@@ -437,15 +445,21 @@ def main():
     for idx in idx_all[:args.random]:
         print("### index =",idx)
         z = data_z[idx, :, :]
+        u = data_u[idx, :, :]
         x = data_x[idx, :, :]
         xg = data_xg[idx, :, :]
         fig = plt.figure()
-        plt.subplot(2, 1, 1)
+        plt.subplot(3, 1, 1)
+        plot_dim = u.shape[1]
+        for i in range(plot_dim):
+            plt.plot(u[:, i], label="u dim-" + str(i) + "/" + str(u.shape[1]))
+        plt.legend()
+        plt.subplot(3, 1, 2)
         plot_dim = z.shape[1]
         for i in range(plot_dim):
             plt.plot(z[:, i], label="dim-" + str(i) + "/" + str(z.shape[1]))
         plt.legend()
-        plt.subplot(2, 1, 2)
+        plt.subplot(3, 1, 3)
         plot_dim = x.shape[1]
         for i in range(plot_dim):
             plt.plot(x[:, i], label="x dim-" + str(i) + "/" + str(x.shape[1]))

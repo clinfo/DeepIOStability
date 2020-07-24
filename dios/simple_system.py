@@ -48,7 +48,7 @@ class SimpleSystem(torch.nn.Module):
         state_dim,
         input_dim,
         delta_t=0.1,
-        gamma=1.0,
+        gamma=None,
         c=0.1,
         init_state_mode="estimate_state",
         alpha=[1.0,1.0,1.0],
@@ -77,6 +77,7 @@ class SimpleSystem(torch.nn.Module):
         self.func_g_vec = SimpleMLP(state_dim, hidden_layer_dim, input_dim)
         self.func_v = SimpleV(state_dim,device=device)
         self._input_state_eye = torch.eye(self.input_dim, self.state_dim,device=device)
+        self.param_gamma = nn.Parameter(torch.randn(1)[0]+10)
 
     def func_g_mat(self, x):
         if self.diag_g:
@@ -113,7 +114,10 @@ class SimpleSystem(torch.nn.Module):
 
         hj_dvf = torch.sum(dv * self.func_f(x), dim=-1)
         h = self.func_h(x)
-        gamma = self.gamma
+        if self.gamma is None:
+            gamma = (1.0e-4+F.relu(self.param_gamma))
+        else:
+            gamma = self.gamma
         hj_hh = 1 / 2.0 * torch.sum(h * h, dim=-1)
         g = self.func_g_mat(x)
         dv = torch.unsqueeze(dv, -1)
@@ -183,7 +187,7 @@ class SimpleSystem(torch.nn.Module):
         state_generated, obs_generated = self.simutlate(init_state, batch_size, step, input_)
         return state_generated, obs_generated
 
-    def forward_loss(self, obs, input_, state, obs_generated, state_generated, with_state_loss=False):
+    def forward_loss(self, obs, input_, state, obs_generated, state_generated, with_state_loss=False, epoch=None):
         ### observation loss
         # print("obs(r)",obs_generated.shape)
         # print("obs",obs.shape)
@@ -191,17 +195,30 @@ class SimpleSystem(torch.nn.Module):
         loss_recons = (obs - obs_generated) ** 2
         loss_hj, loss_hj_list = self.compute_HJ(state)
         loss_hj = F.relu(loss_hj + self.c)
-        loss_sum_recons=loss_recons.sum(dim=(1,2)).mean(dim=0)
-        loss_sum_hj=loss_hj.sum(dim=1).mean(dim=0)
-        loss = {
-            "recons": self.alpha[0]*loss_sum_recons,
-            "HJ": self.alpha[1]*loss_sum_hj,
-            "*recons": loss_sum_recons,
-            "*HJ": loss_sum_hj,
-            "*HJ_vf": loss_hj_list[0].sum(dim=1).mean(dim=0),
-            "*HJ_hh": loss_hj_list[1].sum(dim=1).mean(dim=0),
-            "*HJ_gg": loss_hj_list[2].sum(dim=1).mean(dim=0),
-        }
+        step_wise_loss=False
+        if step_wise_loss:
+            loss_sum_recons=loss_recons.sum(dim=2).mean(dim=(0,1))
+            loss_sum_hj=loss_hj.mean(dim=(0,1))
+        else:
+            loss_sum_recons=loss_recons.sum(dim=(1,2)).mean(dim=0)
+            loss_sum_hj=loss_hj.sum(dim=1).mean(dim=0)
+        if epoch is not None and epoch<3:
+            loss = {
+                "recons": self.alpha[0]*loss_sum_recons,
+                "*recons": loss_sum_recons,
+            }
+        else:
+            loss = {
+                "recons": self.alpha[0]*loss_sum_recons,
+                "HJ": self.alpha[1]*loss_sum_hj,
+                "*recons": loss_sum_recons,
+                "*HJ": loss_sum_hj,
+                "*HJ_vf": loss_hj_list[0].sum(dim=1).mean(dim=0),
+                "*HJ_hh": loss_hj_list[1].sum(dim=1).mean(dim=0),
+                "*HJ_gg": loss_hj_list[2].sum(dim=1).mean(dim=0),
+            }
+        if self.gamma is None:
+            loss["gamma"]=self.param_gamma**2
         if with_state_loss:
             if state is not None:
                 loss_state = (state - state_generated) ** 2
@@ -209,11 +226,11 @@ class SimpleSystem(torch.nn.Module):
                 loss["*state"] = self.alpha[2] * loss_sum_state
         return loss
 
-    def forward(self, obs, input_, state=None, with_generated=False):
+    def forward(self, obs, input_, state=None, with_generated=False, epoch=None):
         state_generated, obs_generated = self.forward_simulate(obs, input_, state)
         l2_gain=self.forward_l2gain(obs, input_)
         l2_gain_recons=self.forward_l2gain(obs_generated, input_)
-        loss=self.forward_loss(obs, input_, state_generated, obs_generated, state)
+        loss=self.forward_loss(obs, input_, state_generated, obs_generated, state, epoch=epoch)
         loss["*l2"]=l2_gain.mean()
         loss["*l2_recons"]=l2_gain_recons.mean()
         if with_generated:

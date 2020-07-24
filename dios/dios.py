@@ -93,7 +93,7 @@ def get_default_config():
     config["save_result_filter"] = None
 
     config["delta_t"]=0.1
-    config["gamma"]=1.0
+    config["gamma"]=None
     config["c"]=0.1
     config["init_state_mode"]="estimate_state"
     config["alpha_recons"]=1.0
@@ -191,13 +191,17 @@ def save_simulation(config,data,states,obs_gen):
     if "simulation_path" in config:
         os.makedirs(config["simulation_path"], exist_ok=True)
         filename=config["simulation_path"]+"/obs.npy"
-        print("[LOAD]", filename)
+        print("[SAVE]", filename)
         np.save(filename, data.obs)
+        if data.input is not None:
+            filename=config["simulation_path"]+"/input.npy"
+            print("[SAVE]", filename)
+            np.save(filename, data.input)
         filename=config["simulation_path"]+"/obs_gen.npy"
-        print("[LOAD]", filename)
+        print("[SAVE]", filename)
         np.save(filename, obs_gen.to("cpu").detach().numpy().copy())
         filename=config["simulation_path"]+"/states.npy"
-        print("[LOAD]", filename)
+        print("[SAVE]", filename)
         np.save(filename, states.to("cpu").detach().numpy().copy())
 
 
