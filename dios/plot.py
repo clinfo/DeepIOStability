@@ -432,12 +432,16 @@ def main():
     filename=result_path+"/sim/states.npy"
     print("[LOAD]",filename)
     data_z = np.load(filename)
+    filename=result_path+"/sim/state_true.npy"
+    print("[LOAD]",filename)
+    data_z_true = np.load(filename)
     n=data_x.shape[0]
     ##
     print("u       :",data_u.shape)
     print("x       :",data_x.shape)
     print("x_recons:",data_xg.shape)
     print("z       :",data_z.shape)
+    print("z_true  :",data_z_true.shape)
     print("#data   :",n)
     # plot_start()
     idx_all=np.arange(n)
@@ -445,30 +449,40 @@ def main():
     for idx in idx_all[:args.random]:
         print("### index =",idx)
         z = data_z[idx, :, :]
+        z_true = data_z_true[idx, :, :]
         u = data_u[idx, :, :]
         x = data_x[idx, :, :]
         xg = data_xg[idx, :, :]
         fig = plt.figure()
-        plt.subplot(3, 1, 1)
+        plt.subplot(4, 1, 1)
         plot_dim = u.shape[1]
         for i in range(plot_dim):
             plt.plot(u[:, i], label="u dim-" + str(i) + "/" + str(u.shape[1]))
+        plt.title("input")
         plt.legend()
-        plt.subplot(3, 1, 2)
+        plt.subplot(4, 1, 2)
         plot_dim = z.shape[1]
         for i in range(plot_dim):
             plt.plot(z[:, i], label="dim-" + str(i) + "/" + str(z.shape[1]))
+        plt.title("state")
         plt.legend()
-        plt.subplot(3, 1, 3)
+        plt.subplot(4, 1, 3)
+        plot_dim = z_true.shape[1]
+        for i in range(plot_dim):
+            plt.plot(z_true[:, i], label="dim-" + str(i) + "/" + str(z_true.shape[1]))
+        plt.title("true state")
+        plt.legend()
+
+        plt.subplot(4, 1, 4)
         plot_dim = x.shape[1]
         for i in range(plot_dim):
             plt.plot(x[:, i], label="x dim-" + str(i) + "/" + str(x.shape[1]))
         plot_dim = xg.shape[1]
         for i in range(plot_dim):
             plt.plot(xg[:, i], label="recons dim-" + str(i) + "/" + str(x.shape[1]))
-
+        plt.title("observation")
         plt.legend()
-        filename="fig{:04d}.png".format(idx)
+        filename=config["result_path"]+"/fig{:04d}.png".format(idx)
         print("[SAVE]",filename)
         plt.savefig(filename)
 

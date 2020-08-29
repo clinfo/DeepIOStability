@@ -1,11 +1,12 @@
 {
-	"epoch":1000,
+	"epoch":100,
 	"data_train":"data/GlucoseInsulin00.train",
 	"data_test": "data/GlucoseInsulin00.test",
 	"result_path":"result00/",
 	"learning_rate":0.01,
-	"alpha_HJ":0.01,
-	"alpha_gamma":0.1,
+	"alpha_HJ":1.0,
+	"alpha_gamma":0.01,
+	"init_state_mode":"zero_state",
 	"delta_t":1,
 	"state_dim":6,
 	"batch_size":100

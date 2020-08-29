@@ -98,8 +98,11 @@ def get_default_config():
     config["init_state_mode"]="estimate_state"
     config["alpha_recons"]=1.0
     config["alpha_HJ"]=1.0
+    config["alpha_gamma"]=1.0
+    config["alpha_state"]=1.0
     config["diag_g"]=True
-      
+    
+    config["weight_decay"] = 0.1
     config["hidden_layer_dim01"] = 32
     config["hidden_layer_dim02"] = None
     config["hidden_layer_dim03"] = None
@@ -171,7 +174,7 @@ def run_train_mode(config, logger):
             gamma=config["gamma"],
             c=config["c"],
             init_state_mode=config["init_state_mode"],
-            alpha=[config["alpha_recons"],config["alpha_HJ"],1.0],
+            alpha=[config["alpha_recons"],config["alpha_HJ"],config["alpha_gamma"],config["alpha_state"]],
             diag_g=config["diag_g"],
             device=device
             )
@@ -193,6 +196,10 @@ def save_simulation(config,data,states,obs_gen):
         filename=config["simulation_path"]+"/obs.npy"
         print("[SAVE]", filename)
         np.save(filename, data.obs)
+        if data.state is not None:
+            filename=config["simulation_path"]+"/state_true.npy"
+            print("[SAVE]", filename)
+            np.save(filename, data.state)
         if data.input is not None:
             filename=config["simulation_path"]+"/input.npy"
             print("[SAVE]", filename)

@@ -5,6 +5,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from dios.data_util import DiosDataset
 import json
+import logging
 import numpy as np
 
 
@@ -149,7 +150,7 @@ class DiosSSM:
             validset, batch_size=batch_size, shuffle=False, num_workers=4, timeout=20
         )
         optimizer = optim.Adam(
-            self.system_model.parameters(), lr=config["learning_rate"], weight_decay=0.3
+            self.system_model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"]
         )
 
         train_loss_logger = LossLogger()
@@ -208,11 +209,11 @@ class DiosSSM:
 
             ## print message
             ckpt_msg = "*" if check_point_flag else ""
-            print(
-                "[{:4d}] ".format(epoch + 1),
+            msg="\t".join(["[{:4d}] ".format(epoch + 1),
                 train_loss_logger.get_msg("train"),
                 valid_loss_logger.get_msg("valid"),
                 "({:2d})".format(patient_count),
-                ckpt_msg,
-            )
+                ckpt_msg,])
+            logger = logging.getLogger("logger")
+            logger.info(msg)
         return train_loss_logger, valid_loss_logger
