@@ -12,12 +12,13 @@ class SimpleMLP(torch.nn.Module):
         self.fc_1 = nn.Linear(h_dim, h_dim)
         self.fc_2 = nn.Linear(h_dim, out_dim)
         self.activation = activation
+        self.scale = scale
 
     def forward(self, x):
         x = self.activation(self.fc_0(x))
         x = self.activation(self.fc_1(x))
         x = self.fc_2(x)
-        return x*scale
+        return x*self.scale
 
 class SimpleV1(torch.nn.Module):
     def __init__(self, in_dim, device=None):
@@ -84,6 +85,7 @@ class SimpleSystem(torch.nn.Module):
         self.init_state_mode=init_state_mode
         self.alpha=alpha
         self.diag_g=diag_g
+        self.device=device
 
         self.state_dim = state_dim
         self.input_dim = input_dim
@@ -214,11 +216,11 @@ class SimpleSystem(torch.nn.Module):
         if   self.init_state_mode=="true_state":
             init_state =state[:,0,:]
         elif self.init_state_mode=="random_state":
-            init_state =torch.randn(*(batch_size, self.state_dim))
+            init_state =torch.randn(*(batch_size, self.state_dim),device=self.device)
         elif self.init_state_mode=="estimate_state":
             init_state = self.func_h_inv(obs[:, 0, :])
         elif self.init_state_mode=="zero_state":
-            init_state =torch.zeros((batch_size, self.state_dim))
+            init_state =torch.zeros((batch_size, self.state_dim),device=self.device)
         else:
             print("[ERROR] unknown init_state:",state.init_state_mode)
         state_generated, obs_generated = self.simutlate(init_state, batch_size, step, input_)
@@ -230,7 +232,7 @@ class SimpleSystem(torch.nn.Module):
         # print("obs",obs.shape)
         # print("state",state.shape)
         loss_recons = (obs - obs_generated) ** 2
-        state_rand =torch.randn(state.shape,requires_grad=True)
+        state_rand =torch.randn(state.shape,requires_grad=True,device=self.device)
         loss_hj, loss_hj_list = self.compute_HJ(state_rand)
         #loss_hj, loss_hj_list = self.compute_HJ(state)
         loss_hj = F.relu(loss_hj + self.c)
