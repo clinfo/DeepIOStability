@@ -262,16 +262,20 @@ class SimpleSystem(torch.nn.Module):
         # obs=torch.tensor(obs, requires_grad=True)
         step = obs.shape[1]
         batch_size = obs.shape[0]
-        if   self.init_state_mode=="true_state":
-            init_state =state[:,0,:]
-        elif self.init_state_mode=="random_state":
-            init_state =torch.randn(*(batch_size, self.state_dim),device=self.device)
-        elif self.init_state_mode=="estimate_state":
-            init_state = self.func_h_inv(obs[:, 0, :])
-        elif self.init_state_mode=="zero_state":
-            init_state =torch.zeros((batch_size, self.state_dim),device=self.device)
+        if type(self.init_state_mode) is str:
+            if   self.init_state_mode=="true_state":
+                init_state =state[:,0,:]
+            elif self.init_state_mode=="random_state":
+                init_state =torch.randn(*(batch_size, self.state_dim),device=self.device)
+            elif self.init_state_mode=="estimate_state":
+                init_state = self.func_h_inv(obs[:, 0, :])
+            elif self.init_state_mode=="zero_state":
+                init_state =torch.zeros((batch_size, self.state_dim),device=self.device)
+            else:
+                print("[ERROR] unknown init_state:",state.init_state_mode)
         else:
-            print("[ERROR] unknown init_state:",state.init_state_mode)
+            init_state =torch.zeros((batch_size, self.state_dim),device=self.device)
+            init_state+=self.init_state_mode
         state_generated, obs_generated = self.simutlate(init_state, batch_size, step, input_)
         return state_generated, obs_generated
 
