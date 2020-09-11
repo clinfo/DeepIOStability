@@ -2,7 +2,7 @@
 	"epoch":100,
 	"data_train":"data/GlucoseInsulin00.train",
 	"data_test": "data/GlucoseInsulin00.test",
-	"result_path":"result00/",
+	"result_path":"result/",
 	"learning_rate":0.01,
 	"alpha_HJ":1.0,
 	"alpha_gamma":0.01,

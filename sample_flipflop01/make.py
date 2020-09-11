@@ -113,6 +113,16 @@ y_data=np.array(y_data,dtype=np.float32)
 u_data=np.array(u_data,dtype=np.float32)
 x_data=np.array(x_data,dtype=np.float32)
 
+max_y=np.max(y_data)
+y_data=y_data/max_y
+print("max y:",max_y)
+max_u=np.max(u_data)
+u_data=u_data/max_u
+print("max u:",max_u)
+max_x=np.max(x_data)
+x_data=x_data/max_x
+print("max x:",max_x)
+ 
 M=9000
 np.save('data/flipflop.train.state.npy',x_data[:M,:,:])
 np.save('data/flipflop.train.obs.npy',y_data[:M,:,:])

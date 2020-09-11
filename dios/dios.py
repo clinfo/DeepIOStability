@@ -79,7 +79,11 @@ def get_default_config():
     config["epoch"] = 10
     config["patience"] = 5
     config["batch_size"] = 100
+    #config["activation"] = "relu"
+    #config["optimizer"] = "sgd"
     ##
+    config["v_type"] = "single"
+    config["system_scale"] = 0.1
     config["learning_rate"] = 1.0e-2
     # dataset
     config["train_valid_ratio"] = 0.2
@@ -102,10 +106,10 @@ def get_default_config():
     config["alpha_state"]=1.0
     config["diag_g"]=True
     
-    config["weight_decay"] = 0.1
-    config["hidden_layer_dim01"] = 32
-    config["hidden_layer_dim02"] = None
-    config["hidden_layer_dim03"] = None
+    config["weight_decay"] = 0.01
+    config["hidden_layer_f"] = [32]
+    config["hidden_layer_g"] = [32]
+    config["hidden_layer_h"] = [32]
     """
     config["alpha"] = 1.0
     config["beta"] = 1.0
@@ -167,15 +171,21 @@ def run_train_mode(config, logger):
         device = 'cpu'
         print("device: cpu")
     # defining system
-    hidden_layer_dim = config["hidden_layer_dim01"]
+    hidden_layer_h=config["hidden_layer_h"]
+    hidden_layer_f=config["hidden_layer_f"]
+    hidden_layer_g=config["hidden_layer_g"]
     sys = SimpleSystem(obs_dim, state_dim, input_dim,
-            hidden_layer_dim=hidden_layer_dim,
+            hidden_layer_h=hidden_layer_h,
+            hidden_layer_f=hidden_layer_f,
+            hidden_layer_g=hidden_layer_g,
             delta_t=config["delta_t"],
             gamma=config["gamma"],
             c=config["c"],
             init_state_mode=config["init_state_mode"],
             alpha=[config["alpha_recons"],config["alpha_HJ"],config["alpha_gamma"],config["alpha_state"]],
             diag_g=config["diag_g"],
+            scale=config["system_scale"],
+            v_type=config["v_type"],
             device=device
             )
     # training NN from data

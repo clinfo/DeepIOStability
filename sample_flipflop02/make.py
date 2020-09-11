@@ -42,13 +42,14 @@ B1 = np.array([gamma0,0,0,gamma0])
 N = 10000
 h = 1e-11
 T = 1e-8
-#T = 1e-7
 times = np.arange(0,T,h)
 
 N_step = 2
 step_size =  1e-9
 I_step = 3e-4
-I_sigma = 0.5e-4
+I_sigma = 0
+
+
 
 x_data = np.zeros((N,times.shape[0],4))
 y_data = np.zeros((N,times.shape[0],1))
@@ -77,7 +78,6 @@ for i_sample in range(N):
         x[k+1] = x[k] + h* (f(x[k]) +  B1*u[k])
 
     y = x[:,3]
-
 
     x_data[i_sample,:,:] = x
     u_data[i_sample,:,0] = u

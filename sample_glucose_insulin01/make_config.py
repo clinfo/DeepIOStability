@@ -1,10 +1,22 @@
 import json
-obj=json.load(open("config.json"))
+import argparse
+import os
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--config", type=str, default="config.json", nargs="?", help="config json file"
+)
+args = parser.parse_args()
+obj=json.load(open(args.config))
+name,ext=os.path.splitext(os.path.basename(args.config))
+dir_name=os.path.dirname(obj["result_path"])
+print(dir_name)
 for i in range(9):
     obj["data_train"]="data/GlucoseInsulin{:02d}.train".format(i)
     obj["data_test"] ="data/GlucoseInsulin{:02d}.test".format(i)
-    obj["result_path"]="result{:02d}/".format(i)
-    fp=open("config/config{:02d}.json".format(i),"w")
+    obj["result_path"]=dir_name+"{:02d}/".format(i)
+    filename="config/"+name+"{:02d}.json".format(i)
+    fp=open(filename,"w")
+    print(filename)
     json.dump(obj,fp)
     #print(obj)
 

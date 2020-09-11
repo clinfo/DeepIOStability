@@ -8,21 +8,32 @@ import logging
 class SimpleMLP(torch.nn.Module):
     def __init__(self, in_dim, h_dim, out_dim, activation=F.relu, scale=0.1):
         super(SimpleMLP, self).__init__()
-        self.fc_0 = nn.Linear(in_dim, h_dim)
-        self.fc_1 = nn.Linear(h_dim, h_dim)
-        self.fc_2 = nn.Linear(h_dim, out_dim)
+        linears=[]
+        prev_d=in_dim
+        if h_dim is None:
+            h_dim=[]
+        for d in h_dim:
+            linears.append(self.get_layer(prev_d,d))
+            prev_d=d
+        linears.append(self.get_layer(prev_d,out_dim))
+        self.linears = nn.ModuleList(linears)
         self.activation = activation
         self.scale = scale
 
+    def get_layer(self,in_d,out_d):
+        l=nn.Linear(in_d, out_d)
+        nn.init.kaiming_uniform_(l.weight)
+        return l
+
     def forward(self, x):
-        x = self.activation(self.fc_0(x))
-        x = self.activation(self.fc_1(x))
-        x = self.fc_2(x)
+        for i in range(len(self.linears)-1):
+            x = self.activation(self.linears[i](x))
+        x = self.linears[len(self.linears)-1](x)
         return x*self.scale
 
 class SimpleV1(torch.nn.Module):
     def __init__(self, in_dim, device=None):
-        super(SimpleV, self).__init__()
+        super(SimpleV1, self).__init__()
         self.in_dim = in_dim
         self.pt1 = torch.zeros((self.in_dim,))
         self.pt1=self.pt1.to(device)
@@ -35,12 +46,11 @@ class SimpleV1(torch.nn.Module):
         v1 = (v1 ** 2).sum(dim=(2,))
         vv = torch.stack([v1])
         min_vv, min_index = torch.min(vv, dim=0)
-        return min_vv,min_index
+        return min_vv,min_index     
 
-
-class SimpleV(torch.nn.Module):
+class SimpleV2(torch.nn.Module):
     def __init__(self, in_dim, device=None):
-        super(SimpleV, self).__init__()
+        super(SimpleV2, self).__init__()
         self.in_dim = in_dim
         self.pt1 = torch.zeros((self.in_dim,))
         self.pt2 = torch.zeros((self.in_dim,))
@@ -61,6 +71,35 @@ class SimpleV(torch.nn.Module):
         min_vv, min_index = torch.min(vv, dim=0)
         return min_vv,min_index
 
+class SimpleV3(torch.nn.Module):
+    def __init__(self, in_dim, device=None):
+        super(SimpleV3, self).__init__()
+        self.in_dim = in_dim
+        self.pts=[]
+        for i in range(in_dim):
+            pt1 = torch.zeros((self.in_dim,))
+            pt2 = torch.zeros((self.in_dim,))
+            pt1[i] = 1.0
+            pt2[i] = -1.0
+            pt1=pt1.to(device)
+            pt2=pt2.to(device)
+            self.pts.append(pt1)
+            self.pts.append(pt2)
+
+    def get_stablle_points(self):
+        return self.pts
+
+    def forward(self, x):
+        vv=[]
+        for pt in self.pts:
+            v1 = x - pt
+            v1 = (v1 ** 2).sum(dim=(2,))
+            vv.append(v1)
+        vv = torch.stack(vv)
+        min_vv, min_index = torch.min(vv, dim=0)
+        return min_vv,min_index
+
+
 
 class SimpleSystem(torch.nn.Module):
     def __init__(
@@ -73,8 +112,12 @@ class SimpleSystem(torch.nn.Module):
         c=0.1,
         init_state_mode="estimate_state",
         alpha=[1.0,1.0,1.0,1.0],
-        hidden_layer_dim=None,
+        hidden_layer_h=None,
+        hidden_layer_f=None,
+        hidden_layer_g=None,
         diag_g=True,
+        scale=0.1,
+        v_type="single",
         device=None,
     ):
         super(SimpleSystem, self).__init__()
@@ -89,15 +132,21 @@ class SimpleSystem(torch.nn.Module):
 
         self.state_dim = state_dim
         self.input_dim = input_dim
-        if hidden_layer_dim is None:
-            hidden_layer_dim = state_dim if state_dim > obs_dim else obs_dim
 
-        self.func_h = SimpleMLP(state_dim, hidden_layer_dim, obs_dim)
-        self.func_f = SimpleMLP(state_dim, hidden_layer_dim, state_dim)
-        self.func_h_inv = SimpleMLP(obs_dim, hidden_layer_dim, state_dim)
-        self.func_g = SimpleMLP(state_dim, hidden_layer_dim, state_dim * input_dim)
-        self.func_g_vec = SimpleMLP(state_dim, hidden_layer_dim, input_dim)
-        self.func_v = SimpleV(state_dim,device=device)
+        self.func_h = SimpleMLP(state_dim, hidden_layer_h, obs_dim,scale=scale)
+        self.func_h_inv = SimpleMLP(obs_dim, hidden_layer_h, state_dim,scale=scale)
+        self.func_f = SimpleMLP(state_dim, hidden_layer_f, state_dim,scale=scale)
+        self.func_g = SimpleMLP(state_dim, hidden_layer_g, state_dim * input_dim,scale=scale)
+        self.func_g_vec = SimpleMLP(state_dim, hidden_layer_g, input_dim,scale=scale)
+        if v_type=="single":
+            self.func_v = SimpleV1(state_dim,device=device)
+        elif v_type=="double":
+            self.func_v = SimpleV2(state_dim,device=device)
+        elif v_type=="many":
+            self.func_v = SimpleV3(state_dim,device=device)
+        else:
+            print("[ERROR] unknown:",v_type)
+
         self._input_state_eye = torch.eye(self.input_dim, self.state_dim,device=device)
         self.param_gamma = nn.Parameter(torch.randn(1)[0]+5)
 
@@ -226,13 +275,23 @@ class SimpleSystem(torch.nn.Module):
         state_generated, obs_generated = self.simutlate(init_state, batch_size, step, input_)
         return state_generated, obs_generated
 
+    def forward_state_sampling(self,n,m,scale):
+        mu_list=self.func_v.get_stablle_points()
+        ret=[]
+        for mu in mu_list:
+            x= scale*torch.randn((n,m,self.state_dim),requires_grad=True,device=self.device)
+            ret.append(x)
+        ret=torch.cat(ret, dim=0)
+        return ret
+
     def forward_loss(self, obs, input_, state, obs_generated, state_generated, with_state_loss=False, epoch=None):
         ### observation loss
         # print("obs(r)",obs_generated.shape)
         # print("obs",obs.shape)
         # print("state",state.shape)
         loss_recons = (obs - obs_generated) ** 2
-        state_rand =torch.randn(state.shape,requires_grad=True,device=self.device)
+        #state_rand =3*torch.randn(state.shape,requires_grad=True,device=self.device)
+        state_rand =self.forward_state_sampling(10,10,scale=1.0)
         loss_hj, loss_hj_list = self.compute_HJ(state_rand)
         #loss_hj, loss_hj_list = self.compute_HJ(state)
         loss_hj = F.relu(loss_hj + self.c)
@@ -260,6 +319,7 @@ class SimpleSystem(torch.nn.Module):
             }
         if self.gamma is None:
             loss["gamma"]=self.alpha[2]*self.param_gamma**2
+            loss["*gamma"]=self.param_gamma**2
         if with_state_loss:
             if state is not None:
                 loss_state = (state - state_generated) ** 2
