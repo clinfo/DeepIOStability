@@ -251,6 +251,11 @@ def run_pred_mode(config, logger):
 
     loss, states, obs_gen = model.simulate_with_data(all_data)
     save_simulation(config,all_data,states,obs_gen)
+    ##
+    x=np.sum((all_data.obs-obs_gem)**2,axis=2)
+    x=np.mean(x,axis=1)
+    mse=np.mean(x,axis=0)
+    print("mean error",mse)
 
 
 def main():
