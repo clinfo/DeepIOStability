@@ -133,10 +133,10 @@ class MOESP:
     
     
     
-    def autofit(self,u_train,y_train,rate_validation =0.2,n_max = 20):
+    def autofit(self,u_data,y_data,rate_validation =0.2,n_max = 20):
 
         # データの分割
-        N_train = u_train.shape[0]
+        N_train = u_data.shape[0]
         N_validation = round(N_train *rate_validation)
         N_vtrain = N_train  - N_validation
         id_all =  np.random.choice(N_train,N_train,replace=False)
@@ -146,7 +146,7 @@ class MOESP:
         u_validation  =  u_data[id_all[N_vtrain:],:]
         y_validation  =  y_data[id_all[N_vtrain:],:]
 
-        step  = u_train.shape[1]
+        step  = u_data.shape[1]
         #  スコアの計算
         k_max = min(n_max * 10, step - n_max)
         score_list = np.inf * np.ones((n_max,k_max))
@@ -313,10 +313,10 @@ class ORT:
     
     
     
-    def autofit(self,u_train,y_train,rate_validation =0.2,n_max = 20):
+    def autofit(self,u_data,y_data,rate_validation =0.2,n_max = 20):
 
         # データの分割
-        N_train = u_train.shape[0]
+        N_train = u_data.shape[0]
         N_validation = round(N_train *rate_validation)
         N_vtrain = N_train  - N_validation
         id_all =  np.random.choice(N_train,N_train,replace=False)
@@ -326,7 +326,7 @@ class ORT:
         u_validation  =  u_data[id_all[N_vtrain:],:]
         y_validation  =  y_data[id_all[N_vtrain:],:]
 
-        step  = u_train.shape[1]
+        step  = u_data.shape[1]
         #  スコアの計算
         k_max = min(n_max * 10, step - n_max)
         score_list = np.inf * np.ones((n_max,k_max))
@@ -345,7 +345,7 @@ class ORT:
                 print(self.n,self.k,score_list[n_dim,k_dim])
         self.n = np.where(score_list ==np.min(score_list))[0][0]
         self.k = np.where(score_list ==np.min(score_list))[1][0]
-        self.fit(u_train,y_train)
+        self.fit(u_data,y_data)
         self.score_list = score_list
         return self.n,self.k
 
