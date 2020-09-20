@@ -196,8 +196,8 @@ for i_Pt in range(b1.shape[0]):
     ys_data[:,:,0] = G[i_Pt]
     ys_data[:,:,1] = I[i_Pt]
         
-    np.save('data/GlucoseInsulin{0:02d}_u_data.npy'.format(i_Pt),u_data)
-    np.save('data/GlucoseInsulin{0:02d}_x_data.npy'.format(i_Pt),x_data)
-    np.save('data/GlucoseInsulin{0:02d}_y_data.npy'.format(i_Pt),y_data)
-    np.save('data/GlucoseInsulin{0:02d}_ys_data.npy'.format(i_Pt),ys_data)
+    np.save('data_org/GlucoseInsulin{0:02d}_u_data.npy'.format(i_Pt),u_data)
+    np.save('data_org/GlucoseInsulin{0:02d}_x_data.npy'.format(i_Pt),x_data)
+    np.save('data_org/GlucoseInsulin{0:02d}_y_data.npy'.format(i_Pt),y_data)
+    np.save('data_org/GlucoseInsulin{0:02d}_ys_data.npy'.format(i_Pt),ys_data)
 
