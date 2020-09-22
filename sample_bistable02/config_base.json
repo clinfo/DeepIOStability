@@ -6,11 +6,11 @@
 	"system_scale":0.01,
 	"save_model_path":"model",
 	"init_state_mode":"true_state",
-	"alpha_HJ":1.0,
-	"alpha_gamma":1.0,
+	"alpha_HJ":0.0,
+	"alpha_gamma":0.0,
 	"delta_t":1,
 	"state_dim":1,
 	"batch_size":100,
 	"v_type":"double",
-	"result_path":"result/"
+	"result_path":"result_base/"
 }
