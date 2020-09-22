@@ -189,7 +189,7 @@ class SimpleSystem(torch.nn.Module):
         for mu in mu_list:
             h_mu = self.func_h(mu)
             h_mu_list.append(h_mu)
-        return h_mu_list, mu
+        return h_mu_list, mu_list
 
     def compute_HJ(self, x):
         v,i_v = self.func_v(x)
@@ -277,7 +277,8 @@ class SimpleSystem(torch.nn.Module):
         batch_size = obs.shape[0]
         if type(self.init_state_mode) is str:
             if   self.init_state_mode=="true_state":
-                init_state =state[:,0,:]
+                init_state =torch.zeros((batch_size, self.state_dim),device=self.device)
+                init_state[:,:state.shape[2]] =state[:,0,:]
             elif self.init_state_mode=="random_state":
                 init_state =torch.randn(*(batch_size, self.state_dim),device=self.device)
             elif self.init_state_mode=="estimate_state":
