@@ -1,6 +1,7 @@
 import numpy as np
 import joblib
 import json
+import logging
 import dios
 import dios.linear
 from dios.data_util import load_data
@@ -9,21 +10,22 @@ import argparse
 from matplotlib import pylab as plt
 
 
-def run_pred_mode(config):
+def run_pred_mode(config, logger):
     # ... loading data
-    test_data = load_data(mode="test", config=config, logger=None)
+    logger.info("... loading data")
+    all_data = load_data(mode="test", config=config, logger=None)
     # ... confirmation of input data and dimensions
     model_name=config["method"] 
     print("method:", model_name)
-    print("data_size:", test_data.num)
-    print("observation dimension:", test_data.obs_dim)
-    print("input dimension:", test_data.input_dim)
-    print("state dimension:", test_data.state_dim)
-    obs_dim = test_data.obs_dim
+    print("data_size:", all_data.num)
+    print("observation dimension:", all_data.obs_dim)
+    print("input dimension:", all_data.input_dim)
+    print("state dimension:", all_data.state_dim)
+    obs_dim = all_data.obs_dim
     # ... defining data
-    y_test =test_data.obs
-    u_test =test_data.input
-    x_test =test_data.state
+    y_test =all_data.obs
+    u_test =all_data.input
+    x_test =all_data.state
     ##
     # ... loading
     model_path=config["save_model_path"]
@@ -34,13 +36,33 @@ def run_pred_mode(config):
     k=model.k
     ###
     mean_error = model.score(u_test,y_test)
-    print ("mean error:",mean_error)
+    logger.info("mean error: {}".format(mean_error))
     # チェックに使うデータを決める
     i_N =  0
     # 初期値の推定(最初の2点のデータのみ)
     x0 = model.predict_initial_state(u_test[i_N,:n],y_test[i_N,:n])
     #  予測 
     y_hat =model.predict(x0,u_test[i_N])
+    ##
+    print("=== gain")
+    obs_gen=y_hat
+    if all_data.stable is not None:
+        print("Enabled stable observation")
+        obs_stable=all_data.stable
+        yy_data=np.sum((all_data.obs-obs_stable)**2,axis=2)
+        yy_gen =np.sum((obs_gen     -obs_stable)**2,axis=2)
+    else:
+        yy_data=np.sum((all_data.obs)**2,axis=2)
+        yy_gen =np.sum((obs_gen     )**2,axis=2)
+    
+    gu=np.sum(all_data.input**2,axis=2)
+
+    gy_data=np.mean(np.mean(yy_data,axis=1),axis=0)
+    gy_gen =np.mean(np.mean(yy_gen ,axis=1),axis=0)
+    gu=np.mean(np.mean(gu,axis=1),axis=0)
+    logger.info("data io gain: {}".format(gy_data/gu))
+    logger.info("test io gain: {}".format(gy_gen/gu))
+    #
     ##
     # ...plotting
     plt.subplot(2,1,1)
@@ -59,8 +81,9 @@ def run_pred_mode(config):
     plt.savefig(filename,dpi=100)
 
 
-def run_train_mode(config):
+def run_train_mode(config, logger):
     # ... loading data
+    logger.info("... loading data")
     train_data = load_data(mode="train", config=config, logger=None)
     # ... confirmation of input data and dimensions
     model_name=config["method"] 
@@ -94,7 +117,7 @@ def run_train_mode(config):
         exit()
     ##
     mean_error = model.score(u_train,y_train)
-    print ("mean error:",mean_error)
+    logger.info("mean error: ".format(mean_error))
     # ...saving
     model_path=config["save_model_path"]
     filename = model_path+"/"+model_name+".pkl"
@@ -158,23 +181,25 @@ def main():
         fp = open(args.config, "r")
         config.update(json.load(fp))
     build_config(config)
-    """
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger("logger")
-    if "log" in config:
-        h = logging.FileHandler(filename=config["log"], mode="w")
-        h.setLevel(logging.INFO)
-        logger.addHandler(h)
-    """
     config["method"]=args.method
     # setup
     mode_list = args.mode.split(",")
     for mode in mode_list:
         # mode
         if mode == "train":
-            run_train_mode(config)
+            if "log_linear_train" in config:
+                h = logging.FileHandler(filename=config["log_linear_train"], mode="w")
+                h.setLevel(logging.INFO)
+                logger.addHandler(h)
+            run_train_mode(config, logger)
         elif mode == "infer" or mode == "test":
-            run_pred_mode(config)
+            if "log_linear_test" in config:
+                h = logging.FileHandler(filename=config["log_linear_test"], mode="w")
+                h.setLevel(logging.INFO)
+                logger.addHandler(h)
+            run_pred_mode(config, logger)
 
 if __name__ == "__main__":
     main()

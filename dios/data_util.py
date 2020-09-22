@@ -127,7 +127,7 @@ def load_all_data(name, config, logger=None):
         s = data.obs.shape[1]
         data.step = np.array([s] * data.num)
     ###
-    keys = ["input", "state"]
+    keys = ["input", "state", "stable"]
     for key in keys:
         filename = name + "." + key + ".npy"
         val = None

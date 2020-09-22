@@ -67,7 +67,10 @@ def build_config(config):
         config["simulation_path"] = path + "/sim"
         config["load_model"] = path + "/model/best.checkpoint"
         config["plot_path"] = path + "/plot"
-        config["log"] = path + "/log.txt"
+        config["log_train"] = path + "/log_train.txt"
+        config["log_test"] = path + "/log_test.txt"
+        config["log_linear_train"] = path + "/log_linear_train.txt"
+        config["log_linear_test"] = path + "/log_linear_test.txt"
 
 
 def get_default_config():
@@ -234,29 +237,81 @@ def run_pred_mode(config, logger):
     input_dim = all_data.input_dim
     state_dim = config["state_dim"]
     obs_dim = all_data.obs_dim
+    #
+    if torch.cuda.is_available():
+        device = 'cuda'
+        print("device: cuda")
+    else:
+        device = 'cpu'
+        print("device: cpu")
     # defining system
-    hidden_layer_dim = config["hidden_layer_dim01"]
+    hidden_layer_h=config["hidden_layer_h"]
+    hidden_layer_f=config["hidden_layer_f"]
+    hidden_layer_g=config["hidden_layer_g"]
     sys = SimpleSystem(obs_dim, state_dim, input_dim,
-            hidden_layer_dim=hidden_layer_dim,
+            hidden_layer_h=hidden_layer_h,
+            hidden_layer_f=hidden_layer_f,
+            hidden_layer_g=hidden_layer_g,
             delta_t=config["delta_t"],
             gamma=config["gamma"],
             c=config["c"],
             init_state_mode=config["init_state_mode"],
-            alpha=[config["alpha_recons"],config["alpha_HJ"],1.0],
+            alpha=[config["alpha_recons"],config["alpha_HJ"],config["alpha_gamma"],config["alpha_state"]],
             diag_g=config["diag_g"],
+            scale=config["system_scale"],
+            v_type=config["v_type"],
+            device=device
             )
+
     # training NN from data
-    model = DiosSSM(config, sys)
+    model = DiosSSM(config, sys, device=device)
     model.load_ckpt(config["load_model"])
 
-    loss, states, obs_gen = model.simulate_with_data(all_data)
+    loss, states, obs_gen = model.simulate_with_data(all_data, step_wise_loss=True)
     save_simulation(config,all_data,states,obs_gen)
+    obs_gen=obs_gen.to("cpu").detach().numpy().copy()
     ##
-    x=np.sum((all_data.obs-obs_gem)**2,axis=2)
+    x=np.sum((all_data.obs-obs_gen)**2,axis=2)
     x=np.mean(x,axis=1)
     mse=np.mean(x,axis=0)
-    print("mean error",mse)
+    logger.info("... loading data")
+    logger.info("mean error: {}".format(mse))
+    ##
+    print("=== gain")
+    if all_data.stable is not None:
+        print("Enabled stable observation")
+        obs_stable=all_data.stable
+        yy_data=np.sum((all_data.obs-obs_stable)**2,axis=2)
+        yy_gen =np.sum((obs_gen     -obs_stable)**2,axis=2)
+    else:
+        yy_data=np.sum((all_data.obs)**2,axis=2)
+        yy_gen =np.sum((obs_gen     )**2,axis=2)
+    
+    gu=np.sum(all_data.input**2,axis=2)
 
+    gy_data=np.mean(np.mean(yy_data,axis=1),axis=0)
+    gy_gen =np.mean(np.mean(yy_gen ,axis=1),axis=0)
+    gu=np.mean(np.mean(gu,axis=1),axis=0)
+    logger.info("data io gain: {}".format(gy_data/gu))
+    logger.info("test io gain: {}".format(gy_gen/gu))
+    ##
+    print("=== stable")
+    st_pts,st_mu=model.system_model.get_stable()
+    st_errors=[]
+    for pt,mu in zip(st_pts,st_mu):
+        mu=mu.to("cpu").detach().numpy().copy()
+        pt=pt.to("cpu").detach().numpy().copy()
+        logger.info("mu: {}".format(str(mu)))
+        logger.info("stable point: {}".format(str(pt)))
+        if all_data.stable is not None:
+            obs_stable=all_data.stable
+            logger.info("data stable: {}".format(str(obs_stable[0,0,:])))
+            e=(obs_stable[:,:,:]-pt)
+            st_errors.append(e**2)
+    st_e=np.stack(st_errors, axis=0)
+    st_e=np.min(st_e,axis=0)
+    st_e=np.mean(st_e)
+    logger.info("stable error: {}".format(str(st_e)))
 
 def main():
     parser = argparse.ArgumentParser()
@@ -321,10 +376,6 @@ def main():
     #
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger("logger")
-    if "log" in config:
-        h = logging.FileHandler(filename=config["log"], mode="w")
-        h.setLevel(logging.INFO)
-        logger.addHandler(h)
 
     # setup
     mode_list = args.mode.split(",")
@@ -332,8 +383,16 @@ def main():
     for mode in mode_list:
         # mode
         if mode == "train":
+            if "log_train" in config:
+                h = logging.FileHandler(filename=config["log_train"], mode="w")
+                h.setLevel(logging.INFO)
+                logger.addHandler(h)
             run_train_mode(config, logger)
         elif mode == "infer" or mode == "test":
+            if "log_test" in config:
+                h = logging.FileHandler(filename=config["log_test"], mode="w")
+                h.setLevel(logging.INFO)
+                logger.addHandler(h)
             if args.model is not None:
                 config["load_model"] = args.model
             run_pred_mode(config, logger)

@@ -66,20 +66,20 @@ class DiosSSM:
         self.device=device
 
 
-    def _compute_batch_simulate(self, batch):
+    def _compute_batch_simulate(self, batch, step_wise_loss=False):
         obs, input_, state = batch
         metrics = {}
         if input_ is 0:  ## to avoid error (specification of pytorch)
             input_ = None
 
-        loss_dict, state_generated, obs_generated = self.system_model.forward(obs, input_, state, with_generated=True)
+        loss_dict, state_generated, obs_generated = self.system_model.forward(obs, input_, state, with_generated=True,step_wise_loss=step_wise_loss)
         loss = 0
         for k, v in loss_dict.items():
             if k[0]!="*":
                 loss += v
         return loss, loss_dict, state_generated, obs_generated
 
-    def simulate_with_data(self, valid_data):
+    def simulate_with_data(self, valid_data, step_wise_loss=False):
         config = self.config
         validset = DiosDataset(valid_data, train=False)
         batch_size = config["batch_size"]
@@ -92,7 +92,7 @@ class DiosSSM:
         state_generated_list, obs_generated_list = [], []
         for i, batch in enumerate(validloader, 0):
             batch=[el.to(self.device) for el in batch]
-            loss, loss_dict, state_generated, obs_generated = self._compute_batch_simulate(batch)
+            loss, loss_dict, state_generated, obs_generated = self._compute_batch_simulate(batch,step_wise_loss=step_wise_loss)
             state_generated_list.append(state_generated)
             obs_generated_list.append(obs_generated)
             valid_loss_logger.update(loss, loss_dict)

@@ -38,7 +38,7 @@ class SimpleV1(torch.nn.Module):
         self.pt1 = torch.zeros((self.in_dim,))
         self.pt1=self.pt1.to(device)
 
-    def get_stablle_points(self):
+    def get_stable_points(self):
         return [self.pt1]
 
     def forward(self, x):
@@ -59,7 +59,7 @@ class SimpleV2(torch.nn.Module):
         self.pt1=self.pt1.to(device)
         self.pt2=self.pt2.to(device)
 
-    def get_stablle_points(self):
+    def get_stable_points(self):
         return [self.pt1,self.pt2]
 
     def forward(self, x):
@@ -86,7 +86,7 @@ class SimpleV3(torch.nn.Module):
             self.pts.append(pt1)
             self.pts.append(pt2)
 
-    def get_stablle_points(self):
+    def get_stable_points(self):
         return self.pts
 
     def forward(self, x):
@@ -177,6 +177,19 @@ class SimpleSystem(torch.nn.Module):
             else:
                 print("error", x.shape)
             return g
+    def get_gamma(self):
+        if self.gamma is None:
+            return self.param_gamma
+        else:
+            return self.gamma
+
+    def get_stable(self):
+        mu_list=self.func_v.get_stable_points()
+        h_mu_list=[]
+        for mu in mu_list:
+            h_mu = self.func_h(mu)
+            h_mu_list.append(h_mu)
+        return h_mu_list, mu
 
     def compute_HJ(self, x):
         v,i_v = self.func_v(x)
@@ -190,7 +203,7 @@ class SimpleSystem(torch.nn.Module):
         else:
             gamma = self.gamma
         ##
-        mu_list=self.func_v.get_stablle_points()
+        mu_list=self.func_v.get_stable_points()
         hj_hh_list=[]
         h = self.func_h(x)
         for mu in mu_list:
@@ -280,7 +293,7 @@ class SimpleSystem(torch.nn.Module):
         return state_generated, obs_generated
 
     def forward_state_sampling(self,n,m,scale):
-        mu_list=self.func_v.get_stablle_points()
+        mu_list=self.func_v.get_stable_points()
         ret=[]
         for mu in mu_list:
             x= scale*torch.randn((n,m,self.state_dim),requires_grad=True,device=self.device)
@@ -288,7 +301,10 @@ class SimpleSystem(torch.nn.Module):
         ret=torch.cat(ret, dim=0)
         return ret
 
-    def forward_loss(self, obs, input_, state, obs_generated, state_generated, with_state_loss=False, epoch=None):
+    def forward_loss(self, obs, input_, state, obs_generated, state_generated,
+            with_state_loss=False,
+            step_wise_loss=False,
+            epoch=None):
         ### observation loss
         # print("obs(r)",obs_generated.shape)
         # print("obs",obs.shape)
@@ -299,7 +315,6 @@ class SimpleSystem(torch.nn.Module):
         loss_hj, loss_hj_list = self.compute_HJ(state_rand)
         #loss_hj, loss_hj_list = self.compute_HJ(state)
         loss_hj = F.relu(loss_hj + self.c)
-        step_wise_loss=False
         if step_wise_loss:
             loss_sum_recons=loss_recons.sum(dim=2).mean(dim=(0,1))
             loss_sum_hj=loss_hj.mean(dim=(0,1))
@@ -331,11 +346,11 @@ class SimpleSystem(torch.nn.Module):
                 loss["*state"] = self.alpha[3] * loss_sum_state
         return loss
 
-    def forward(self, obs, input_, state=None, with_generated=False, epoch=None):
+    def forward(self, obs, input_, state=None, with_generated=False, epoch=None, step_wise_loss=False):
         state_generated, obs_generated = self.forward_simulate(obs, input_, state)
         l2_gain=self.forward_l2gain(obs, input_)
         l2_gain_recons=self.forward_l2gain(obs_generated, input_)
-        loss=self.forward_loss(obs, input_, state_generated, obs_generated, state, epoch=epoch)
+        loss=self.forward_loss(obs, input_, state_generated, obs_generated, state, epoch=epoch, step_wise_loss=step_wise_loss)
         loss["*l2"]=l2_gain.mean()
         loss["*l2_recons"]=l2_gain_recons.mean()
         if with_generated:
