@@ -42,3 +42,14 @@ $ python make.py
 ```
 $ dios train --config config.json
 ```
+
+線形モデルの場合(比較用)
+```
+$ dios-linear train --config config.json --method <method>
+```
+`<method>`部分にモデル同定手法を指定する
+ - `ORT`
+ - `MOESP`
+ - `ORT_auto`
+ - `MOESP_auto`
+ 
