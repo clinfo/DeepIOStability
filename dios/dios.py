@@ -67,10 +67,7 @@ def build_config(config):
         config["simulation_path"] = path + "/sim"
         config["load_model"] = path + "/model/best.checkpoint"
         config["plot_path"] = path + "/plot"
-        config["log_train"] = path + "/log_train.txt"
-        config["log_test"] = path + "/log_test.txt"
-        config["log_linear_train"] = path + "/log_linear_train.txt"
-        config["log_linear_test"] = path + "/log_linear_test.txt"
+        config["log_path"] = path
 
 
 def get_default_config():
@@ -313,6 +310,13 @@ def run_pred_mode(config, logger):
     st_e=np.mean(st_e)
     logger.info("stable error: {}".format(str(st_e)))
 
+def set_file_logger(logger,config,filename):
+    if "log_path" in config:
+        filename=config["log_path"]+"/"+filename
+        h = logging.FileHandler(filename=filename, mode="w")
+        h.setLevel(logging.INFO)
+        logger.addHandler(h)
+    
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("mode", type=str, help="train/infer")
@@ -383,16 +387,10 @@ def main():
     for mode in mode_list:
         # mode
         if mode == "train":
-            if "log_train" in config:
-                h = logging.FileHandler(filename=config["log_train"], mode="w")
-                h.setLevel(logging.INFO)
-                logger.addHandler(h)
+            set_file_logger(logger,config,"log_train.txt")
             run_train_mode(config, logger)
         elif mode == "infer" or mode == "test":
-            if "log_test" in config:
-                h = logging.FileHandler(filename=config["log_test"], mode="w")
-                h.setLevel(logging.INFO)
-                logger.addHandler(h)
+            set_file_logger(logger,config,"log_test.txt")
             if args.model is not None:
                 config["load_model"] = args.model
             run_pred_mode(config, logger)

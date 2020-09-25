@@ -5,7 +5,7 @@ import logging
 import dios
 import dios.linear
 from dios.data_util import load_data
-from dios.dios import get_default_config, build_config
+from dios.dios import get_default_config, build_config, set_file_logger
 import argparse
 from matplotlib import pylab as plt
 
@@ -189,16 +189,10 @@ def main():
     for mode in mode_list:
         # mode
         if mode == "train":
-            if "log_linear_train" in config:
-                h = logging.FileHandler(filename=config["log_linear_train"], mode="w")
-                h.setLevel(logging.INFO)
-                logger.addHandler(h)
+            set_file_logger(logger,config,"log_linear_train."+config["method"]+".txt")
             run_train_mode(config, logger)
         elif mode == "infer" or mode == "test":
-            if "log_linear_test" in config:
-                h = logging.FileHandler(filename=config["log_linear_test"], mode="w")
-                h.setLevel(logging.INFO)
-                logger.addHandler(h)
+            set_file_logger(logger,config,"log_linear_test."+config["method"]+".txt")
             run_pred_mode(config, logger)
 
 if __name__ == "__main__":
