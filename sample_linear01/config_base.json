@@ -9,5 +9,5 @@
 	"init_state_mode":"zero_state",
 	"state_dim":2,
 	"batch_size":100,
-	"result_path":"result/"
+	"result_path":"result_base/"
 }
