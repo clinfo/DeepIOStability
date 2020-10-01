@@ -41,7 +41,7 @@ def objective(trial,src_config,args):
         ii = trial.suggest_int("hidden_layer_h_{:02d}".format(i), 16, 256)
         hidden_layer_h.append(ii)
     config["hidden_layer_h"]=hidden_layer_h
-    config["state_dim"]= trial.suggest_int("state_dim", 2, 16)
+    #config["state_dim"]= trial.suggest_int("state_dim", 2, 16)
     #config["batch_size"]= trial.suggest_int("batch_size", 100, 1000)
     ##
     os.makedirs(path,exist_ok=True)
