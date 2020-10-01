@@ -309,6 +309,18 @@ def run_pred_mode(config, logger):
     st_e=np.min(st_e,axis=0)
     st_e=np.mean(st_e)
     logger.info("stable error: {}".format(str(st_e)))
+    print("=== field")
+    pt,vec=model.get_vector_field(state_dim, dim=[0,1],min_v=-3,max_v=3,delta=0.5)
+    print(x)
+    if "simulation_path" in config:
+        os.makedirs(config["simulation_path"], exist_ok=True)
+        filename=config["simulation_path"]+"/field_pt.npy"
+        print("[SAVE]", filename)
+        np.save(filename, pt)
+        filename=config["simulation_path"]+"/field_vec.npy"
+        print("[SAVE]", filename)
+        np.save(filename, vec)
+     
 
 def set_file_logger(logger,config,filename):
     if "log_path" in config:

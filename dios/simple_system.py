@@ -235,23 +235,27 @@ class SimpleSystem(torch.nn.Module):
         o = torch.squeeze(o, -2)
         return o
 
+    def simutlate_one_step(self, current_state, input_=None):
+        if input_ is not None:
+            ###
+            g = self.func_g_mat(current_state)
+            u = input_[:, :]
+            ug = self.vecmat_mul(u, g)
+            ###
+            next_state = (
+                current_state + (self.func_f(current_state) + ug) * self.delta_t
+            )
+        else:
+            next_state = current_state + self.func_f(current_state) * self.delta_t
+        return next_state
+
     def simutlate(self, init_state, batch_size, step, input_=None):
         current_state = init_state
         state = []
         obs_generated = []
         for t in range(step):
             ## simulating system
-            if input_ is not None:
-                ###
-                g = self.func_g_mat(current_state)
-                u = input_[:, t, :]
-                ug = self.vecmat_mul(u, g)
-                ###
-                next_state = (
-                    current_state + (self.func_f(current_state) + ug) * self.delta_t
-                )
-            else:
-                next_state = current_state + self.func_f(current_state) * self.delta_t
+            next_state=self.simutlate_one_step(current_state, input_[:, t, :])
             o = self.func_h(current_state)
             ## saving time-point data
             obs_generated.append(o)

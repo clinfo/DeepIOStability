@@ -79,6 +79,23 @@ class DiosSSM:
                 loss += v
         return loss, loss_dict, state_generated, obs_generated
 
+    def get_vector_field(self, state_dim, dim=[0,1],min_v=-3,max_v=3,delta=0.5):
+        if state_dim==1:
+            x = np.arange(min_v, max_v, delta)
+            state= np.reshape(x,(-1,1))
+        else:
+            x1 = np.arange(min_v, max_v, delta)
+            x2 = np.arange(min_v, max_v, delta)
+            xx = np.meshgrid(x1,x2)
+            np.array(xx).shape
+            vv=np.transpose(np.reshape(np.array(xx),(2,-1)))
+            state=np.zeros(vv.shape[0],state_dim)
+            state[:,dim]=vv
+        state_t=torch.tensor(state,dtype=torch.float32)
+        next_state = self.system_model.simulate_one_step(state_t)
+        vec = next_state-state_t
+        return state, vec.detach().to('cpu')
+
     def simulate_with_data(self, valid_data, step_wise_loss=False):
         config = self.config
         validset = DiosDataset(valid_data, train=False)
