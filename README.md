@@ -7,6 +7,8 @@ https://colab.research.google.com/drive/1WQ-ICfVrrd_yJ_0LbRFw67Pypj3NhbMu?usp=sh
 * python3 (> 3.3)
   * Pytorch
   * joblib
+  * scikit-learn
+  * scipy
 
 
 ### Anaconda install
