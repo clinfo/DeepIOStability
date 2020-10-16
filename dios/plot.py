@@ -410,10 +410,19 @@ def plot_field(config,args):
         if os.path.exists(filename):
             vec = np.load(filename)
             if vec.shape[1]==1:
+                """
                 plt.quiver(pt[:,0],0,vec[:,0],-1)
+                """
+                x=data_pt[:,0]
+                y=data_pt[:,0]+data_vec[:,0]
+                fx=(y-x)
+                plt.plot(x,fx)
+                plt.xlabel("x")
+                plt.ylabel("f(x)")
             else:
-                plt.quiver(pt[:,0],pt[:,1],vec[:,0],vec[:,0])
+                plt.quiver(pt[:,0],pt[:,1],vec[:,0],vec[:,1])
             plt.title("state-space")
+            plt.grid()
             plt.legend()
             filename=config["result_path"]+"/field.png"
             print("[SAVE]",filename)
