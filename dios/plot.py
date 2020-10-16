@@ -401,6 +401,24 @@ def plot_start():
             plt.show()
             plt.clf()
 
+def plot_field(config,args):
+    filename=config["result_path"]+"/sim/field_pt.npy"
+    if os.path.exists(filename):
+        print("[LOAD]", filename)
+        pt = np.load(filename)
+        filename=config["result_path"]+"/sim/field_vec.npy"
+        if os.path.exists(filename):
+            vec = np.load(filename)
+            if vec.shape[1]==1:
+                plt.quiver(pt[:,0],0,vec[:,0],-1)
+            else:
+                plt.quiver(pt[:,0],pt[:,1],vec[:,0],vec[:,0])
+            plt.title("state-space")
+            plt.legend()
+            filename=config["result_path"]+"/field.png"
+            print("[SAVE]",filename)
+            plt.savefig(filename)
+
 
 def main():
     # plot_start()
@@ -443,6 +461,9 @@ def main():
     print("z       :",data_z.shape)
     print("z_true  :",data_z_true.shape)
     print("#data   :",n)
+
+    ##
+    plot_field(config,args)
     # plot_start()
     idx_all=np.arange(n)
     np.random.shuffle(idx_all)

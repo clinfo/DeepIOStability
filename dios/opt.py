@@ -12,9 +12,9 @@ def objective(trial,src_config,args):
     config=copy.deepcopy(src_config)
     config["result_path"]=path
     ##
-    config["alpha_recons"] = trial.suggest_uniform("alpha_recons", 0, 1.0)
-    config["alpha_HJ"]     = 1.0- config["alpha_recons"]
-    config["alpha_gamma"] = trial.suggest_uniform("alpha_gamma", 0.0, 1.0)
+    #config["alpha_recons"] = trial.suggest_uniform("alpha_recons", 0, 1.0)
+    #config["alpha_HJ"]     = 1.0- config["alpha_recons"]
+    #config["alpha_gamma"] = trial.suggest_uniform("alpha_gamma", 0.0, 1.0)
     config["learning_rate"]= trial.suggest_float("learning_rate", 1e-5, 1e-3, log=True)
     config["weight_decay"]= trial.suggest_float("weight_decay", 1e-6, 1e-2, log=True)
     config["system_scale"]= trial.suggest_float("system_scale", 0.001, 0.1, log=True)
