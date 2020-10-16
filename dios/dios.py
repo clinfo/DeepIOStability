@@ -299,7 +299,7 @@ def run_pred_mode(config, logger):
         mu=mu.to("cpu").detach().numpy().copy()
         pt=pt.to("cpu").detach().numpy().copy()
         logger.info("mu: {}".format(str(mu)))
-        logger.info("stable point: {}".format(str(pt)))
+        logger.info("stable point h(mu): {}".format(str(pt)))
         if all_data.stable is not None:
             obs_stable=all_data.stable
             logger.info("data stable: {}".format(str(obs_stable[0,0,:])))
@@ -310,7 +310,7 @@ def run_pred_mode(config, logger):
     st_e=np.mean(st_e)
     logger.info("stable error: {}".format(str(st_e)))
     print("=== field")
-    pt,vec=model.get_vector_field(state_dim, dim=[0,1],min_v=-3,max_v=3,delta=0.5)
+    pt,vec=model.get_vector_field(state_dim, dim=[0,1],min_v=-3,max_v=3,delta=0.2)
     print(x)
     if "simulation_path" in config:
         os.makedirs(config["simulation_path"], exist_ok=True)

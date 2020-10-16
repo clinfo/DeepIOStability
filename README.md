@@ -9,8 +9,11 @@ https://colab.research.google.com/drive/1WQ-ICfVrrd_yJ_0LbRFw67Pypj3NhbMu?usp=sh
   * joblib
   * scikit-learn
   * scipy
-
-
+  * optuna
+```
+conda install pytorch
+conda install -c conda-forge optuna
+```
 ### Anaconda install
 First, please install anaconda by the official anaconda instruction [https://conda.io/docs/user-guide/install/linux.html].
 

@@ -91,7 +91,7 @@ class DiosSSM:
             vv=np.transpose(np.reshape(np.array(xx),(2,-1)))
             state=np.zeros(vv.shape[0],state_dim)
             state[:,dim]=vv
-        state_t=torch.tensor(state,dtype=torch.float32)
+        state_t=torch.tensor(state,dtype=torch.float32).to(self.device)
         next_state = self.system_model.simulate_one_step(state_t)
         vec = next_state-state_t
         return state, vec.detach().to('cpu')
