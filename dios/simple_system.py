@@ -236,7 +236,6 @@ class SimpleSystem(torch.nn.Module):
         return o
 
     def simulate_one_step(self, current_state, input_=None):
-        print(current_state.shape)
         if input_ is not None:
             ###
             g = self.func_g_mat(current_state)
@@ -311,11 +310,17 @@ class SimpleSystem(torch.nn.Module):
             with_state_loss=False,
             step_wise_loss=False,
             epoch=None):
+        ###
         ### observation loss
+        ###
         # print("obs(r)",obs_generated.shape)
         # print("obs",obs.shape)
         # print("state",state.shape)
         loss_recons = (obs - obs_generated) ** 2
+        
+        ###
+        ### HJ loss
+        ###
         #state_rand =3*torch.randn(state.shape,requires_grad=True,device=self.device)
         state_rand =self.forward_state_sampling(10,10,scale=1.0)
         loss_hj, loss_hj_list = self.compute_HJ(state_rand)
@@ -327,6 +332,10 @@ class SimpleSystem(torch.nn.Module):
         else:
             loss_sum_recons=loss_recons.sum(dim=(1,2)).mean(dim=0)
             loss_sum_hj=loss_hj.sum(dim=1).mean(dim=0)
+        
+        ###
+        ### summation loss & scheduling
+        ###
         if epoch is not None and epoch<3:
             loss = {
                 "recons": self.alpha[0]*loss_sum_recons,
@@ -342,14 +351,28 @@ class SimpleSystem(torch.nn.Module):
                 "*HJ_hh": loss_hj_list[1].sum(dim=1).mean(dim=0),
                 "*HJ_gg": loss_hj_list[2].sum(dim=1).mean(dim=0),
             }
+        
+        ###
+        ### IO stability loss
+        ###
         if self.gamma is None:
             loss["gamma"]=self.alpha[2]*self.param_gamma**2
             loss["*gamma"]=self.param_gamma**2
+        
+        ###
+        ### state loss
+        ###
         if with_state_loss:
             if state is not None:
                 loss_state = (state - state_generated) ** 2
                 loss_sum_state = loss_state.sum(dim=(1,2)).mean(dim=0)
                 loss["*state"] = self.alpha[3] * loss_sum_state
+        else:
+            state_scale=1
+            loss_state = (state) ** 2/(2*state_scale**2)
+            loss_sum_state = loss_state.sum(dim=(1,2)).mean(dim=0)    
+            loss["state"] = self.alpha[3] * loss_sum_state
+            loss["*state"] = loss_sum_state
         return loss
 
     def forward(self, obs, input_, state=None, with_generated=False, epoch=None, step_wise_loss=False):
