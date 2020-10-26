@@ -19,7 +19,7 @@ def objective(trial,src_config,args):
     config["weight_decay"]= trial.suggest_float("weight_decay", 1e-6, 1e-2, log=True)
     config["system_scale"]= trial.suggest_float("system_scale", 0.001, 0.1, log=True)
     config["c"]            = trial.suggest_uniform("c", 0, 1.0)
-    config["v_type"] = trial.suggest_categorical('v_type', ['single','double','many'])
+    #config["v_type"] = trial.suggest_categorical('v_type', ['single','double','many'])
     #activation = trial.suggest_categorical('activation', ['relu', 'sigmoid'])
     #optimizer = trial.suggest_categorical('optimizer', ['sgd', 'adam', 'rmsprop'])
 

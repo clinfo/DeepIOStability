@@ -102,8 +102,12 @@ def get_default_config():
     config["init_state_mode"]="estimate_state"
     config["alpha_recons"]=1.0
     config["alpha_HJ"]=1.0
+    config["alpha_HJ_dvf"]=1.0
+    config["alpha_HJ_hh"]=1.0
+    config["alpha_HJ_gg"]=1.0
     config["alpha_gamma"]=1.0
     config["alpha_state"]=1.0
+    config["hj_loss_type"]="const"
     config["diag_g"]=True
     
     config["weight_decay"] = 0.01
@@ -182,7 +186,15 @@ def run_train_mode(config, logger):
             gamma=config["gamma"],
             c=config["c"],
             init_state_mode=config["init_state_mode"],
-            alpha=[config["alpha_recons"],config["alpha_HJ"],config["alpha_gamma"],config["alpha_state"]],
+            alpha={
+                "recons":config["alpha_recons"],
+                "HJ":config["alpha_HJ"],
+                "gamma":config["alpha_gamma"],
+                "state":config["alpha_state"],
+                "HJ_dvf":config["alpha_HJ_dvf"],
+                "HJ_hh":config["alpha_HJ_hh"],
+                "HJ_gg":config["alpha_HJ_gg"],},
+            hj_loss_type=config["hj_loss_type"],
             diag_g=config["diag_g"],
             scale=config["system_scale"],
             v_type=config["v_type"],
@@ -253,7 +265,15 @@ def run_pred_mode(config, logger):
             gamma=config["gamma"],
             c=config["c"],
             init_state_mode=config["init_state_mode"],
-            alpha=[config["alpha_recons"],config["alpha_HJ"],config["alpha_gamma"],config["alpha_state"]],
+            alpha={
+                "recons":config["alpha_recons"],
+                "HJ":config["alpha_HJ"],
+                "gamma":config["alpha_gamma"],
+                "state":config["alpha_state"],
+                "HJ_dvf":config["alpha_HJ_dvf"],
+                "HJ_hh":config["alpha_HJ_hh"],
+                "HJ_gg":config["alpha_HJ_gg"],},
+            hj_loss_type=config["hj_loss_type"],
             diag_g=config["diag_g"],
             scale=config["system_scale"],
             v_type=config["v_type"],

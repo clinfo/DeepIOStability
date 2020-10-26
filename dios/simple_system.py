@@ -111,7 +111,8 @@ class SimpleSystem(torch.nn.Module):
         gamma=None,
         c=0.1,
         init_state_mode="estimate_state",
-        alpha=[1.0,1.0,1.0,1.0],
+        alpha={},
+        hj_loss_type="const",
         hidden_layer_h=None,
         hidden_layer_f=None,
         hidden_layer_g=None,
@@ -126,12 +127,15 @@ class SimpleSystem(torch.nn.Module):
         self.delta_t = delta_t
         self.c=c
         self.init_state_mode=init_state_mode
-        self.alpha=alpha
+        self.alpha={"recons":1.0,"HJ":1.0,"gamma":1.0,"state":1.0,"HJ_dvf":1.0,"HJ_hh":1.0,"HJ_gg":1.0,}
+        self.alpha.update(alpha)
         self.diag_g=diag_g
         self.device=device
 
         self.state_dim = state_dim
         self.input_dim = input_dim
+        
+        self.hj_loss_type=hj_loss_type
 
         self.func_h = SimpleMLP(state_dim, hidden_layer_h, obs_dim,scale=scale)
         self.func_h_inv = SimpleMLP(obs_dim, hidden_layer_h, state_dim,scale=scale)
@@ -226,7 +230,11 @@ class SimpleSystem(torch.nn.Module):
         gdv2 = torch.sum(gdv ** 2, dim=(-1, -2))
         hj_gg = 1 / (2.0 * gamma ** 2) * gdv2
 
-        loss_hj = hj_dvf + hj_hh + hj_gg
+        loss_hj = hj_dvf+ hj_hh + hj_gg
+        if self.hj_loss_type=="const":
+            loss_hj = F.relu(loss_hj + self.c)
+        elif self.hj_loss_type=="cV":
+            loss_hj = F.relu(loss_hj + self.c*v)
         return loss_hj, [hj_dvf, hj_hh, hj_gg]
 
     def vecmat_mul(self, vec, mat):
@@ -325,7 +333,7 @@ class SimpleSystem(torch.nn.Module):
         state_rand =self.forward_state_sampling(10,10,scale=1.0)
         loss_hj, loss_hj_list = self.compute_HJ(state_rand)
         #loss_hj, loss_hj_list = self.compute_HJ(state)
-        loss_hj = F.relu(loss_hj + self.c)
+        ##
         if step_wise_loss:
             loss_sum_recons=loss_recons.sum(dim=2).mean(dim=(0,1))
             loss_sum_hj=loss_hj.mean(dim=(0,1))
@@ -338,16 +346,16 @@ class SimpleSystem(torch.nn.Module):
         ###
         if epoch is not None and epoch<3:
             loss = {
-                "recons": self.alpha[0]*loss_sum_recons,
+                "recons": self.alpha["recons"]*loss_sum_recons,
                 "*recons": loss_sum_recons,
             }
         else:
             loss = {
-                "recons": self.alpha[0]*loss_sum_recons,
-                "HJ": self.alpha[1]*loss_sum_hj,
+                "recons": self.alpha["recons"]*loss_sum_recons,
+                "HJ": self.alpha["HJ"]*loss_sum_hj,
                 "*recons": loss_sum_recons,
                 "*HJ": loss_sum_hj,
-                "*HJ_vf": loss_hj_list[0].sum(dim=1).mean(dim=0),
+                "*HJ_dvf": loss_hj_list[0].sum(dim=1).mean(dim=0),
                 "*HJ_hh": loss_hj_list[1].sum(dim=1).mean(dim=0),
                 "*HJ_gg": loss_hj_list[2].sum(dim=1).mean(dim=0),
             }
@@ -356,7 +364,7 @@ class SimpleSystem(torch.nn.Module):
         ### IO stability loss
         ###
         if self.gamma is None:
-            loss["gamma"]=self.alpha[2]*self.param_gamma**2
+            loss["gamma"]=self.alpha["gamma"]*self.param_gamma**2
             loss["*gamma"]=self.param_gamma**2
         
         ###
@@ -366,12 +374,12 @@ class SimpleSystem(torch.nn.Module):
             if state is not None:
                 loss_state = (state - state_generated) ** 2
                 loss_sum_state = loss_state.sum(dim=(1,2)).mean(dim=0)
-                loss["*state"] = self.alpha[3] * loss_sum_state
+                loss["*state"] = self.alpha["state"] * loss_sum_state
         else:
             state_scale=1
             loss_state = (state) ** 2/(2*state_scale**2)
             loss_sum_state = loss_state.sum(dim=(1,2)).mean(dim=0)    
-            loss["state"] = self.alpha[3] * loss_sum_state
+            loss["state"] = self.alpha["state"] * loss_sum_state
             loss["*state"] = loss_sum_state
         return loss
 
