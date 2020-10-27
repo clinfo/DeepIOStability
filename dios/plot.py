@@ -413,8 +413,8 @@ def plot_field(config,args):
                 """
                 plt.quiver(pt[:,0],0,vec[:,0],-1)
                 """
-                x=data_pt[:,0]
-                y=data_pt[:,0]+data_vec[:,0]
+                x=pt[:,0]
+                y=pt[:,0]+vec[:,0]
                 fx=(y-x)
                 plt.plot(x,fx)
                 plt.xlabel("x")
