@@ -1,0 +1,39 @@
+{
+    "alpha_HJ": 1.0,
+    "alpha_gamma": 1.0,
+    "alpha_state": 0.01,
+    "hj_cost_type": "cV",
+    "batch_size": 100,
+    "c": 6.282830564574126e-06,
+    "data_test": "data/bistable_2step.test",
+    "data_train": "data/bistable_2step.train",
+    "delta_t": 1,
+    "epoch": 300,
+    "hidden_layer_f": [
+        169,
+        207,
+        256
+    ],
+    "hidden_layer_g": [
+        105,
+        256,
+        177,
+        96,
+        32
+    ],
+    "hidden_layer_h": [
+        236,
+        32,
+        228,
+        29,
+        189
+    ],
+    "init_state_mode": "true_state",
+    "learning_rate": 1.993937565360598e-05,
+    "result_path": "result_opt",
+    "save_model_path": "model",
+    "state_dim": 1,
+    "system_scale": 0.01084613294479819,
+    "v_type": "double",
+    "weight_decay": 8.181716040426238e-05
+}

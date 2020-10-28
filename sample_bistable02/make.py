@@ -9,6 +9,7 @@ def f(x,u):
     return  x*(1- x**2) + u
 np.random.seed(0)
 N = 20000
+M = 18000
 dh = 1e-1
 T = 10
 times = np.arange(0,T,dh)
@@ -41,6 +42,8 @@ np.random.shuffle(u)
 x01 = -np.ones(N//2)
 x02 = np.ones(N//2)
 x0 = np.concatenate([x01,x02],axis=0)
+np.random.shuffle(x0)
+
 x = np.zeros((N,times.shape[0],1))
 
 x[:,0,0] = x0
@@ -53,7 +56,6 @@ ys[x<0] = -1
 
 os.makedirs("data",exist_ok=True)
 
-M=9000
 np.save('data/bistable_2step.train.state.npy',x[:M,:,:])
 np.save('data/bistable_2step.train.obs.npy',  x[:M,:,:])
 np.save('data/bistable_2step.train.input.npy',u[:M,:,:])
