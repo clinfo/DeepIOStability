@@ -79,11 +79,11 @@ class ARX:
        N_validation = round(N_train *rate_validation)
        N_vtrain = N_train  - N_validation
        id_all =  np.random.choice(N_train,N_train,replace=False)
-       u_vtrain  =  u_data[id_all[:N_vtrain],:]
-       y_vtrain  =  y_data[id_all[:N_vtrain],:]
+       u_vtrain  =  u_train[id_all[:N_vtrain],:]
+       y_vtrain  =  y_train[id_all[:N_vtrain],:]
 
-       u_validation  =  u_data[id_all[N_vtrain:],:]
-       y_validation  =  y_data[id_all[N_vtrain:],:]
+       u_validation  =  u_train[id_all[N_vtrain:],:]
+       y_validation  =  y_train[id_all[N_vtrain:],:]
 
        score_list = np.inf * np.ones((nt_max,nt_max))
 
@@ -101,7 +101,7 @@ class ARX:
        return self.nty,self.ntu
 
 
- class PWARX:
+class PWARX:
     def __init__(self,nty=2,ntu=2,N_max = 1000,N_alpha = 10,max_class = 25):
         self.nty = nty # input data
         self.ntu = ntu
@@ -251,11 +251,11 @@ class ARX:
         N_validation = round(N_train *rate_validation)
         N_vtrain = N_train  - N_validation
         id_all =  np.random.choice(N_train,N_train,replace=False)
-        u_vtrain  =  u_data[id_all[:N_vtrain],:]
-        y_vtrain  =  y_data[id_all[:N_vtrain],:]
+        u_vtrain  =  u_train[id_all[:N_vtrain],:]
+        y_vtrain  =  y_train[id_all[:N_vtrain],:]
 
-        u_validation  =  u_data[id_all[N_vtrain:],:]
-        y_validation  =  y_data[id_all[N_vtrain:],:]
+        u_validation  =  u_train[id_all[N_vtrain:],:]
+        y_validation  =  y_train[id_all[N_vtrain:],:]
 
         score_list = np.inf * np.ones((nt_max,nt_max))
 
