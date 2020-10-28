@@ -164,7 +164,7 @@ def run_train_mode(config, logger):
     print("observation dimension:", train_data.obs_dim)
     print("input dimension:", train_data.input_dim)
     print("state dimension:", train_data.state_dim)
-    input_dim = train_data.input_dim
+    input_dim = train_data.input_dim if train_data.input_dim is not None else 1
     state_dim = config["state_dim"]
     obs_dim = train_data.obs_dim
     #
@@ -243,7 +243,7 @@ def run_pred_mode(config, logger):
     print("observation dimension:", all_data.obs_dim)
     print("input dimension:", all_data.input_dim)
     print("state dimension:", all_data.state_dim)
-    input_dim = all_data.input_dim
+    input_dim = all_data.input_dim if all_data.input_dim is not None else 1
     state_dim = config["state_dim"]
     obs_dim = all_data.obs_dim
     #
@@ -295,22 +295,23 @@ def run_pred_mode(config, logger):
     logger.info("mean error: {}".format(mse))
     ####
     print("=== gain")
-    if all_data.stable is not None:
-        print("Enabled stable observation")
-        obs_stable=all_data.stable
-        yy_data=np.sum((all_data.obs-obs_stable)**2,axis=2)
-        yy_gen =np.sum((obs_gen     -obs_stable)**2,axis=2)
-    else:
-        yy_data=np.sum((all_data.obs)**2,axis=2)
-        yy_gen =np.sum((obs_gen     )**2,axis=2)
-    
-    gu=np.sum(all_data.input**2,axis=2)
+    if all_data.input is not None:
+        if all_data.stable is not None:
+            print("Enabled stable observation")
+            obs_stable=all_data.stable
+            yy_data=np.sum((all_data.obs-obs_stable)**2,axis=2)
+            yy_gen =np.sum((obs_gen     -obs_stable)**2,axis=2)
+        else:
+            yy_data=np.sum((all_data.obs)**2,axis=2)
+            yy_gen =np.sum((obs_gen     )**2,axis=2)
+        
+        gu=np.sum(all_data.input**2,axis=2)
 
-    gy_data=np.mean(np.mean(yy_data,axis=1),axis=0)
-    gy_gen =np.mean(np.mean(yy_gen ,axis=1),axis=0)
-    gu=np.mean(np.mean(gu,axis=1),axis=0)
-    logger.info("data io gain: {}".format(gy_data/gu))
-    logger.info("test io gain: {}".format(gy_gen/gu))
+        gy_data=np.mean(np.mean(yy_data,axis=1),axis=0)
+        gy_gen =np.mean(np.mean(yy_gen ,axis=1),axis=0)
+        gu=np.mean(np.mean(gu,axis=1),axis=0)
+        logger.info("data io gain: {}".format(gy_data/gu))
+        logger.info("test io gain: {}".format(gy_gen/gu))
     ####
     print("=== stable")
     st_pts,st_mu=model.system_model.get_stable()
@@ -325,10 +326,11 @@ def run_pred_mode(config, logger):
             logger.info("data stable: {}".format(str(obs_stable[0,0,:])))
             e=(obs_stable[:,:,:]-pt)
             st_errors.append(e**2)
-    st_e=np.stack(st_errors, axis=0)
-    st_e=np.min(st_e,axis=0)
-    st_e=np.mean(st_e)
-    logger.info("stable error: {}".format(str(st_e)))
+    if len(st_errors)>0:
+        st_e=np.stack(st_errors, axis=0)
+        st_e=np.min(st_e,axis=0)
+        st_e=np.mean(st_e)
+        logger.info("stable error: {}".format(str(st_e)))
     ####
     print("=== field")
     pt,vec=model.get_vector_field(state_dim, dim=[0,1],min_v=-3,max_v=3,delta=0.2)
@@ -357,7 +359,7 @@ def run_pred_mode(config, logger):
         np.save(filename, out_state)
     ####
     print("=== long time (random input)")
-    input_data=torch.tensor(np.random.normal(0,1,(N,n_step,obs_dim)),dtype=torch.float32)
+    input_data=torch.tensor(np.random.normal(0,1,(N,n_step,input_dim)),dtype=torch.float32)
     init_state=torch.tensor(np.random.normal(0,1,(N,state_dim)),dtype=torch.float32)
     out_state,out_obs=model.simulate_with_input(input_data, init_state, step=n_step)
     if "simulation_path" in config:

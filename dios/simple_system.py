@@ -390,11 +390,14 @@ class SimpleSystem(torch.nn.Module):
 
     def forward(self, obs, input_, state=None, with_generated=False, epoch=None, step_wise_loss=False):
         state_generated, obs_generated = self.forward_simulate(obs, input_, state)
-        l2_gain=self.forward_l2gain(obs, input_)
-        l2_gain_recons=self.forward_l2gain(obs_generated, input_)
-        loss=self.forward_loss(obs, input_, state_generated, obs_generated, state, epoch=epoch, step_wise_loss=step_wise_loss)
-        loss["*l2"]=l2_gain.mean()
-        loss["*l2_recons"]=l2_gain_recons.mean()
+        if input_ is not None:
+            l2_gain=self.forward_l2gain(obs, input_)
+            l2_gain_recons=self.forward_l2gain(obs_generated, input_)
+            loss=self.forward_loss(obs, input_, state_generated, obs_generated, state, epoch=epoch, step_wise_loss=step_wise_loss)
+            loss["*l2"]=l2_gain.mean()
+            loss["*l2_recons"]=l2_gain_recons.mean()
+        else:
+            loss=self.forward_loss(obs, input_, state_generated, obs_generated, state, epoch=epoch, step_wise_loss=step_wise_loss)
         if with_generated:
             return loss, state_generated, obs_generated
         else:

@@ -14,18 +14,20 @@ class DiosDataset(torch.utils.data.Dataset):
         return self.data.num
 
     def __getitem__(self, idx):
-        # out_obs, out_input, out_state=None,None,None
-        out_obs, out_input, out_state = 0, 0, 0
-        out_obs = self.data.obs[idx]
+        out={}
         if self.data.input is not None:
             out_input = self.data.input[idx]
+            out["input"]=out_input
         if self.data.state is not None:
             out_state = self.data.state[idx]
+            out["state"]=out_state
 
+        out_obs = self.data.obs[idx]
         if self.transform:
             out_obs = self.transform(out_obs)
+        out["obs"]=out_obs
 
-        return out_obs, out_input, out_state
+        return out #out_obs, out_input, out_state
 
 
 class DiosData:
@@ -39,6 +41,8 @@ class DiosData:
         self.state = None
         self.state_mask = None
         self.state_dim = None
+        self.stable = None
+        self.stable_mask = None
         self.step = None
         self.idx = None
 
@@ -58,6 +62,8 @@ class DiosData:
             "input_mask",
             "state",
             "state_mask",
+            "stable",
+            "stable_mask",
             "idx",
         ]
         ## split

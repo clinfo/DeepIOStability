@@ -67,17 +67,33 @@ class DiosSSM:
         self.logger = logging.getLogger("logger")
 
     def _compute_batch_simulate(self, batch, step_wise_loss=False):
-        obs, input_, state = batch
-        metrics = {}
-        if input_ is 0:  ## to avoid error (specification of pytorch)
-            input_ = None
-
+        obs, input_, state = None, None, None
+        obs=batch["obs"]
+        if "input" in batch:
+            input_ = batch["input"]
+        if "state" in batch:
+            state = batch["state"]
         loss_dict, state_generated, obs_generated = self.system_model.forward(obs, input_, state, with_generated=True,step_wise_loss=step_wise_loss)
         loss = 0
         for k, v in loss_dict.items():
             if k[0]!="*":
                 loss += v
         return loss, loss_dict, state_generated, obs_generated
+
+    def _compute_batch_loss(self, batch, epoch):
+        obs, input_, state = None, None, None
+        obs=batch["obs"]
+        if "input" in batch:
+            input_ = batch["input"]
+        if "state" in batch:
+            state = batch["state"]
+        loss_dict = self.system_model(obs, input_, state, epoch=epoch)
+        loss = 0
+        for k, v in loss_dict.items():
+            if k[0]!="*":
+                loss += v
+        return loss, loss_dict
+
 
     def get_vector_field(self, state_dim, dim=[0,1],min_v=-3,max_v=3,delta=0.5):
         if state_dim==1:
@@ -116,7 +132,7 @@ class DiosSSM:
         valid_loss_logger.start_epoch()
         state_generated_list, obs_generated_list = [], []
         for i, batch in enumerate(validloader, 0):
-            batch=[el.to(self.device) for el in batch]
+            batch={k:el.to(self.device) for k,el in batch.items()}
             loss, loss_dict, state_generated, obs_generated = self._compute_batch_simulate(batch,step_wise_loss=step_wise_loss)
             state_generated_list.append(state_generated)
             obs_generated_list.append(obs_generated)
@@ -129,18 +145,6 @@ class DiosSSM:
         out_state_generated = torch.cat(state_generated_list, dim=0)
         out_obs_generated = torch.cat(obs_generated_list, dim=0)
         return valid_loss_logger, out_state_generated, out_obs_generated
-
-    def _compute_batch_loss(self, batch, epoch):
-        obs, input_, state = batch
-        metrics = {}
-        if input_ is 0:  ## to avoid error (specification of pytorch)
-            input_ = None
-        loss_dict = self.system_model(obs, input_, state, epoch=epoch)
-        loss = 0
-        for k, v in loss_dict.items():
-            if k[0]!="*":
-                loss += v
-        return loss, loss_dict
 
     def save(self,path):
         self.logger.info("[save model]"+path)
@@ -192,7 +196,7 @@ class DiosSSM:
             valid_loss_logger.start_epoch()
             for i, batch in enumerate(trainloader, 0):
                 optimizer.zero_grad()
-                batch=[el.to(self.device) for el in batch]
+                batch={k:el.to(self.device) for k,el in batch.items()}
                 loss, loss_dict = self._compute_batch_loss(batch,epoch)
                 train_loss_logger.update(loss, loss_dict)
                 loss.backward()
@@ -201,7 +205,8 @@ class DiosSSM:
                 del loss_dict
 
             for i, batch in enumerate(validloader, 0):
-                batch=[el.to(self.device) for el in batch]
+                #batch=[el.to(self.device) for el in batch]
+                batch={k:el.to(self.device) for k,el in batch.items()}
                 loss, loss_dict = self._compute_batch_loss(batch,epoch)
                 valid_loss_logger.update(loss, loss_dict)
             train_loss_logger.end_epoch()
