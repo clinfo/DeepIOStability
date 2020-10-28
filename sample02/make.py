@@ -1,5 +1,6 @@
 
 import numpy as np
+import os
 np.random.seed(1234)
 A=np.array([[-0.5,0.1],[0.1,-0.3]])
 B=np.array([[1],[0]])
@@ -33,6 +34,7 @@ for i in range(N):
 data_y=np.array(data_y,dtype=np.float32)
 data_u=np.array(data_u,dtype=np.float32)
 data_x=np.array(data_x,dtype=np.float32)
+os.makedirs("dataset",exist_ok=True)
 filename="dataset/sample.train.obs.npy"
 print("[SAVE]",filename)
 print(data_y.shape)
