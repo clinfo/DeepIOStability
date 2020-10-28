@@ -283,7 +283,7 @@ def run_pred_mode(config, logger):
     # training NN from data
     model = DiosSSM(config, sys, device=device)
     model.load_ckpt(config["load_model"])
-
+    logger.info("... simulating data")
     loss, states, obs_gen = model.simulate_with_data(all_data, step_wise_loss=True)
     save_simulation(config,all_data,states,obs_gen)
     obs_gen=obs_gen.to("cpu").detach().numpy().copy()
@@ -293,7 +293,7 @@ def run_pred_mode(config, logger):
     mse=np.mean(x,axis=0)
     logger.info("... loading data")
     logger.info("mean error: {}".format(mse))
-    ##
+    ####
     print("=== gain")
     if all_data.stable is not None:
         print("Enabled stable observation")
@@ -311,7 +311,7 @@ def run_pred_mode(config, logger):
     gu=np.mean(np.mean(gu,axis=1),axis=0)
     logger.info("data io gain: {}".format(gy_data/gu))
     logger.info("test io gain: {}".format(gy_gen/gu))
-    ##
+    ####
     print("=== stable")
     st_pts,st_mu=model.system_model.get_stable()
     st_errors=[]
@@ -329,6 +329,7 @@ def run_pred_mode(config, logger):
     st_e=np.min(st_e,axis=0)
     st_e=np.mean(st_e)
     logger.info("stable error: {}".format(str(st_e)))
+    ####
     print("=== field")
     pt,vec=model.get_vector_field(state_dim, dim=[0,1],min_v=-3,max_v=3,delta=0.2)
     print(x)
@@ -340,8 +341,34 @@ def run_pred_mode(config, logger):
         filename=config["simulation_path"]+"/field_vec.npy"
         print("[SAVE]", filename)
         np.save(filename, vec)
+    ####
+    N=10
+    n_step=1000
+    print("=== long time (zero input)")
+    init_state=torch.tensor(np.random.normal(0,1,(N,state_dim)),dtype=torch.float32)
+    out_state,out_obs=model.simulate_with_input(None, init_state, step=n_step)
+    if "simulation_path" in config:
+        os.makedirs(config["simulation_path"], exist_ok=True)
+        filename=config["simulation_path"]+"/sim_zero.obs.npy"
+        print("[SAVE]", filename)
+        np.save(filename, out_obs)
+        filename=config["simulation_path"]+"/sim_zero.state.npy"
+        print("[SAVE]", filename)
+        np.save(filename, out_state)
+    ####
+    print("=== long time (random input)")
+    input_data=torch.tensor(np.random.normal(0,1,(N,n_step,obs_dim)),dtype=torch.float32)
+    init_state=torch.tensor(np.random.normal(0,1,(N,state_dim)),dtype=torch.float32)
+    out_state,out_obs=model.simulate_with_input(input_data, init_state, step=n_step)
+    if "simulation_path" in config:
+        os.makedirs(config["simulation_path"], exist_ok=True)
+        filename=config["simulation_path"]+"/sim_rand.obs.npy"
+        print("[SAVE]", filename)
+        np.save(filename, out_obs)
+        filename=config["simulation_path"]+"/sim_rand.state.npy"
+        print("[SAVE]", filename)
+        np.save(filename, out_state)
      
-
 def set_file_logger(logger,config,filename):
     if "log_path" in config:
         filename=config["log_path"]+"/"+filename
@@ -384,7 +411,8 @@ def main():
         elif type(val) is float:
             parser.add_argument("--"+key, type=float, default=val, help="[config float]")
         elif type(val) is bool:
-            parser.add_argument("--"+key, action="store_true", help="[config bool]")
+            parser.add_argument("--"+key, type=bool, default=val, help="[config float]")
+            #parser.add_argument("--"+key, action="store_true", help="[config bool]")
         else:
             parser.add_argument("--"+key, type=str, default=val, help="[config string]")
     args = parser.parse_args()

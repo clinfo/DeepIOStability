@@ -64,7 +64,7 @@ class DiosSSM:
         self.config = config
         self.system_model = system_model.to(device)
         self.device=device
-
+        self.logger = logging.getLogger("logger")
 
     def _compute_batch_simulate(self, batch, step_wise_loss=False):
         obs, input_, state = batch
@@ -95,6 +95,14 @@ class DiosSSM:
         next_state = self.system_model.simulate_one_step(state_t)
         vec = next_state-state_t
         return state, vec.detach().to('cpu')
+
+    def simulate_with_input(self, input_data, init_state, step=100):
+        if input_data is not None:
+            input_data=input_data.to(self.device)
+        init_state=init_state.to(self.device)
+        state, obs_generated=self.system_model.simulate(init_state, batch_size=init_state.shape[0], step=step, input_=input_data)
+        return state.detach().to('cpu'),obs_generated.detach().to('cpu')
+
 
     def simulate_with_data(self, valid_data, step_wise_loss=False):
         config = self.config
@@ -135,14 +143,17 @@ class DiosSSM:
         return loss, loss_dict
 
     def save(self,path):
+        self.logger.info("[save model]"+path)
         torch.save(self.system_model.state_dict(), path)
 
     def load(self,path):
+        self.logger.info("[load model]"+path)
         state_dict=torch.load(path)
         self.system_model.load_state_dict(state_dict)
         self.system_model.eval()
 
     def save_ckpt(self, epoch, loss, optimizer, path):
+        self.logger.info("[save ckeck point]"+path)
         torch.save({
             'epoch': epoch,
             'model_state_dict': self.system_model.state_dict(),
@@ -151,6 +162,7 @@ class DiosSSM:
             }, path)
 
     def load_ckpt(self, path):
+        self.logger.info("[load ckeck point]"+path)
         ckpt=torch.load(path)
         self.system_model.load_state_dict(ckpt["model_state_dict"])
         self.system_model.eval()
@@ -231,6 +243,5 @@ class DiosSSM:
                 valid_loss_logger.get_msg("valid"),
                 "({:2d})".format(patient_count),
                 ckpt_msg,])
-            logger = logging.getLogger("logger")
-            logger.info(msg)
+            self.logger.info(msg)
         return train_loss_logger, valid_loss_logger

@@ -157,6 +157,8 @@ class SimpleSystem(torch.nn.Module):
     def func_g_mat(self, x):
         if self.diag_g:
             if len(x.shape) == 2:  # batch_size x state_dim
+                #print(x.shape)
+                #print((self.input_dim, self.state_dim))
                 g = self.func_g_vec(x)
                 temp = self._input_state_eye
                 temp = temp.reshape((1, self.input_dim, self.state_dim))
@@ -263,7 +265,10 @@ class SimpleSystem(torch.nn.Module):
         obs_generated = []
         for t in range(step):
             ## simulating system
-            next_state=self.simulate_one_step(current_state, input_[:, t, :])
+            if input_ is None:
+                next_state=self.simulate_one_step(current_state, None)
+            else:
+                next_state=self.simulate_one_step(current_state, input_[:, t, :])
             o = self.func_h(current_state)
             ## saving time-point data
             obs_generated.append(o)
