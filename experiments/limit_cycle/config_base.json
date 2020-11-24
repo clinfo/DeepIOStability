@@ -1,0 +1,14 @@
+{
+	"epoch":100,
+	"data_train":"dataset/limit_cycle.train",
+	"data_test":"dataset/limit_cycle.test",
+	"learning_rate":0.01,
+	"alpha_HJ":0.0,
+	"alpha_gamma":0.0,
+	"alpha_state":0.0,
+	"system_scale":0.01,
+	"init_state_mode":"zero_state",
+	"state_dim":2,
+	"batch_size":100,
+	"result_path":"result_base/"
+}
