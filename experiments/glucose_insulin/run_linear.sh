@@ -12,6 +12,15 @@ dios-linear test  --config config/config${i}.json --method ORT
 dios-linear train --config config/config${i}.json --method ORT_auto
 dios-linear test  --config config/config${i}.json --method ORT_auto
 
+dios-linear train --config config/config${i}.json --method ARX
+dios-linear test  --config config/config${i}.json --method ARX
+dios-linear train --config config/config${i}.json --method ARX_auto
+dios-linear test  --config config/config${i}.json --method ARX_auto
 
+
+dios-linear train --config config/config${i}.json --method PWARX
+dios-linear test  --config config/config${i}.json --method PWARX
+dios-linear train --config config/config${i}.json --method PWARX_auto
+dios-linear test  --config config/config${i}.json --method PWARX_auto
 
 done

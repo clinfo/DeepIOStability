@@ -3,11 +3,14 @@
 	"data_train":"data/flipflop.train",
 	"data_test":"data/flipflop.test",
 	"learning_rate":0.01,
-	"save_model_path":"model",
-	"alpha_HJ":1.0,
-	"delta_t":1,
 	"state_dim":4,
 	"batch_size":100,
-	"v_type":"many",
+	"v_type":"double",
+	"system_scale":0.001,
+	"init_state_mode":"zero_state",
+	"alpha_HJ":1.0,
+	"alpha_gamma":0.01,
+	"alpha_state":0.01,
 	"result_path":"result/"
 }
+
