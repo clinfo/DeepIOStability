@@ -284,9 +284,11 @@ def run_pred_mode(config, logger):
     model = DiosSSM(config, sys, device=device)
     model.load_ckpt(config["load_model"])
     logger.info("... simulating data")
-    loss, states, obs_gen = model.simulate_with_data(all_data, step_wise_loss=True)
+    loss, states, obs_gen, hh = model.simulate_with_data(all_data, step_wise_loss=True)
+    print(hh.shape)
     save_simulation(config,all_data,states,obs_gen)
     obs_gen=obs_gen.to("cpu").detach().numpy().copy()
+    hh=hh.to("cpu").detach().numpy().copy()
     ##
     x=np.sum((all_data.obs-obs_gen)**2,axis=2)
     x=np.mean(x,axis=1)
@@ -307,34 +309,58 @@ def run_pred_mode(config, logger):
         
         gu=np.sum(all_data.input**2,axis=2)
 
-        gy_data=np.mean(np.mean(yy_data,axis=1),axis=0)
-        gy_gen =np.mean(np.mean(yy_gen ,axis=1),axis=0)
-        gu=np.mean(np.mean(gu,axis=1),axis=0)
-        logger.info("data io gain: {}".format(gy_data/gu))
-        logger.info("test io gain: {}".format(gy_gen/gu))
+        gy_data=np.sqrt(np.mean(yy_data,axis=1))
+        gy_gen =np.sqrt(np.mean(yy_gen ,axis=1))
+        gu=np.sqrt(np.mean(gu,axis=1))
+        logger.info("data io gain: {}".format(np.mean(gy_data/gu)))
+        logger.info("test io gain: {}".format(np.mean(gy_gen/gu)))
+        ##
+        ey_data=2*hh
+        egy_data=np.sqrt(np.mean(ey_data,axis=1))
+        os.makedirs(config["simulation_path"], exist_ok=True)
+        logger.info("estimated test io gain: {}".format(np.mean(egy_data/gu)))
+        logger.info("estimated test io gain: {}".format((egy_data/gu)[0]))
+        gamma=sys.get_gamma().item()
+        logger.info("gamma: {}".format(gamma))
+        print("[SAVE]", config["simulation_path"]+"/gain.tsv")
+        with open(config["simulation_path"]+"/gain.tsv","w") as fp:
+            fp.write("\t".join(["gamma","input_gain","data_output_gain", "test_output_gain","estimated_test_output_gain"]))
+            fp.write("\n")
+            for i in range(len(gu)):
+                fp.write("\t".join([str(gamma),str(gu[i]),str(gy_data[i]),str(gy_gen[i]),str(egy_data[i])]))
+                fp.write("\n")
+        
+
+
     ####
     print("=== stable")
     st_pts,st_mu=model.system_model.get_stable()
     st_errors=[]
-    for pt,mu in zip(st_pts,st_mu):
-        mu=mu.to("cpu").detach().numpy().copy()
-        pt=pt.to("cpu").detach().numpy().copy()
-        logger.info("mu: {}".format(str(mu)))
-        logger.info("stable point h(mu): {}".format(str(pt)))
-        if all_data.stable is not None:
-            obs_stable=all_data.stable
-            logger.info("data stable: {}".format(str(obs_stable[0,0,:])))
-            e=(obs_stable[:,:,:]-pt)
-            st_errors.append(e**2)
+    for pt,mu_pair in zip(st_pts,st_mu):
+        mu_type,mu=mu_pair
+        if mu_type=="point":
+            mu=mu.to("cpu").detach().numpy().copy()
+            pt=pt.to("cpu").detach().numpy().copy()
+            logger.info("mu: {}".format(str(mu)))
+            logger.info("stable point h(mu): {}".format(str(pt)))
+            if all_data.stable is not None:
+                obs_stable=all_data.stable
+                logger.info("data stable: {}".format(str(obs_stable[0,0,:])))
+                e=(obs_stable[:,:,:]-pt)
+                st_errors.append(e**2)
+        elif mu_type=="limit_cycle":
+            logger.info("limit_cycle: skip")
+        else:
+            logger.info("unknown:{}".format(mu_type))
     if len(st_errors)>0:
         st_e=np.stack(st_errors, axis=0)
         st_e=np.min(st_e,axis=0)
         st_e=np.mean(st_e)
         logger.info("stable error: {}".format(str(st_e)))
+
     ####
     print("=== field")
     pt,vec=model.get_vector_field(state_dim, dim=[0,1],min_v=-3,max_v=3,delta=0.2)
-    print(x)
     if "simulation_path" in config:
         os.makedirs(config["simulation_path"], exist_ok=True)
         filename=config["simulation_path"]+"/field_pt.npy"

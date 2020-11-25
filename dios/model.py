@@ -66,19 +66,19 @@ class DiosSSM:
         self.device=device
         self.logger = logging.getLogger("logger")
 
-    def _compute_batch_simulate(self, batch, step_wise_loss=False):
+    def _simulate_with_batch(self, batch, step_wise_loss=False):
         obs, input_, state = None, None, None
         obs=batch["obs"]
         if "input" in batch:
             input_ = batch["input"]
         if "state" in batch:
             state = batch["state"]
-        loss_dict, state_generated, obs_generated = self.system_model.forward(obs, input_, state, with_generated=True,step_wise_loss=step_wise_loss)
+        loss_dict, state_generated, obs_generated, hh = self.system_model.forward(obs, input_, state, with_generated=True,step_wise_loss=step_wise_loss)
         loss = 0
         for k, v in loss_dict.items():
             if k[0]!="*":
                 loss += v
-        return loss, loss_dict, state_generated, obs_generated
+        return loss, loss_dict, state_generated, obs_generated, hh
 
     def _compute_batch_loss(self, batch, epoch):
         obs, input_, state = None, None, None
@@ -105,7 +105,7 @@ class DiosSSM:
             xx = np.meshgrid(x1,x2)
             np.array(xx).shape
             vv=np.transpose(np.reshape(np.array(xx),(2,-1)))
-            state=np.zeros(vv.shape[0],state_dim)
+            state=np.zeros((vv.shape[0],state_dim))
             state[:,dim]=vv
         state_t=torch.tensor(state,dtype=torch.float32,device=self.device)
         next_state = self.system_model.simulate_one_step(state_t)
@@ -131,11 +131,13 @@ class DiosSSM:
         valid_loss_logger = LossLogger()
         valid_loss_logger.start_epoch()
         state_generated_list, obs_generated_list = [], []
+        hh_list=[]
         for i, batch in enumerate(validloader, 0):
             batch={k:el.to(self.device) for k,el in batch.items()}
-            loss, loss_dict, state_generated, obs_generated = self._compute_batch_simulate(batch,step_wise_loss=step_wise_loss)
+            loss, loss_dict, state_generated, obs_generated, hh = self._simulate_with_batch(batch,step_wise_loss=step_wise_loss)
             state_generated_list.append(state_generated)
             obs_generated_list.append(obs_generated)
+            hh_list.append(hh)
             valid_loss_logger.update(loss, loss_dict)
             del loss
             del loss_dict
@@ -144,7 +146,8 @@ class DiosSSM:
         print(valid_loss_logger.get_msg("valid"))
         out_state_generated = torch.cat(state_generated_list, dim=0)
         out_obs_generated = torch.cat(obs_generated_list, dim=0)
-        return valid_loss_logger, out_state_generated, out_obs_generated
+        out_hh = torch.cat(hh_list, dim=0)
+        return valid_loss_logger, out_state_generated, out_obs_generated, out_hh
 
     def save(self,path):
         self.logger.info("[save model]"+path)
