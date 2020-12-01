@@ -1,7 +1,7 @@
 {
 	"epoch":100,
-	"data_train":"dataset/limit_cycle.train",
-	"data_test":"dataset/limit_cycle.test",
+	"data_train":"dataset/nagumo.train",
+	"data_test":"dataset/nagumo.test",
 	"v_type":"single_cycle",
 	"learning_rate":0.01,
 	"alpha_HJ":1.0,
