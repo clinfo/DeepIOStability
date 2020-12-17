@@ -164,6 +164,7 @@ class SimpleSystem(torch.nn.Module):
         diag_g=True,
         scale=0.1,
         v_type="single",
+        init_gamma=5,
         device=None,
     ):
         super(SimpleSystem, self).__init__()
@@ -186,7 +187,7 @@ class SimpleSystem(torch.nn.Module):
         self.func_h_inv = SimpleMLP(obs_dim, hidden_layer_h, state_dim,scale=scale)
         self.func_f = SimpleMLP(state_dim, hidden_layer_f, state_dim,scale=scale)
         self.func_g = SimpleMLP(state_dim, hidden_layer_g, state_dim * input_dim,scale=scale)
-        self.func_g_vec = SimpleMLP(state_dim, hidden_layer_g, input_dim,scale=scale)
+        self.func_g_vec = SimpleMLP(state_dim, hidden_layer_g, input_dim,scale=1.0)
         if v_type=="single":
             self.func_v = SimpleV1(state_dim,device=device)
         elif v_type=="double":
@@ -200,7 +201,7 @@ class SimpleSystem(torch.nn.Module):
             print("[ERROR] unknown:",v_type)
 
         self._input_state_eye = torch.eye(self.input_dim, self.state_dim,device=device)
-        self.param_gamma = nn.Parameter(torch.randn(1)[0]+5)
+        self.param_gamma = nn.Parameter(torch.randn(1)[0]+init_gamma)
 
     def func_g_mat(self, x):
         if self.diag_g:
@@ -451,7 +452,7 @@ class SimpleSystem(torch.nn.Module):
         ### HJ loss
         ###
         #state_rand =3*torch.randn(state.shape,requires_grad=True,device=self.device)
-        state_rand =self.forward_state_sampling(10,10,scale=1.0)
+        state_rand =self.forward_state_sampling(100,1,scale=1.0)
         loss_hj, loss_hj_list = self.compute_HJ(state_rand)
         #loss_hj, loss_hj_list = self.compute_HJ(state)
         ##
@@ -460,8 +461,8 @@ class SimpleSystem(torch.nn.Module):
             loss_sum_hj=loss_hj.mean(dim=(0,1))
         else:
             loss_sum_recons=loss_recons.sum(dim=(1,2)).mean(dim=0)
-            loss_sum_hj=loss_hj.sum(dim=1).mean(dim=0)
-        
+            loss_sum_hj=loss_hj.mean(dim=(0,1))
+            #loss_sum_hj=loss_hj.sum(dim=1).mean(dim=0)
         ###
         ### summation loss & scheduling
         ###
@@ -481,27 +482,31 @@ class SimpleSystem(torch.nn.Module):
                 "*HJ_gg": loss_hj_list[2].sum(dim=1).mean(dim=0),
             }
         
-        ###
-        ### IO stability loss
-        ###
-        if self.gamma is None:
-            loss["gamma"]=self.alpha["gamma"]*self.param_gamma**2
-            loss["*gamma"]=self.param_gamma**2
-        
-        ###
-        ### state loss
-        ###
-        if with_state_loss:
+            ###
+            ### IO stability loss
+            ###
+            if self.gamma is None:
+                loss["gamma^2"]=self.alpha["gamma"]*self.param_gamma**2
+                loss["*gamma^2"]=self.param_gamma**2
+            
+            ###
+            ### state loss
+            ###
+            # state regularization
             if state is not None:
-                loss_state = (state - state_generated) ** 2
-                loss_sum_state = loss_state.sum(dim=(1,2)).mean(dim=0)
-                loss["*state"] = self.alpha["state"] * loss_sum_state
-        else:
-            state_scale=1
-            loss_state = (state) ** 2/(2*state_scale**2)
-            loss_sum_state = loss_state.sum(dim=(1,2)).mean(dim=0)    
-            loss["state"] = self.alpha["state"] * loss_sum_state
-            loss["*state"] = loss_sum_state
+                state_scale=1
+                loss_state = (state) ** 2/(2*state_scale**2)
+                loss_sum_state = loss_state.sum(dim=(1,2)).mean(dim=0)    
+                loss["state-reg"] = self.alpha["state"] * loss_sum_state
+                loss["*state-reg"] = loss_sum_state
+            # display state error
+            if with_state_loss:
+                if state is not None:
+                    loss_state = (state - state_generated) ** 2
+                    loss_sum_state = loss_state.sum(dim=(1,2)).mean(dim=0)
+                    loss["*state-error"] = loss_sum_state
+
+        
         return loss
 
     def forward(self, obs, input_, state=None, with_generated=False, epoch=None, step_wise_loss=False):

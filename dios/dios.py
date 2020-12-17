@@ -100,6 +100,7 @@ def get_default_config():
     config["gamma"]=None
     config["c"]=0.1
     config["init_state_mode"]="estimate_state"
+    config["init_gamma"]=5
     config["alpha_recons"]=1.0
     config["alpha_HJ"]=1.0
     config["alpha_HJ_dvf"]=1.0
@@ -186,6 +187,7 @@ def run_train_mode(config, logger):
             gamma=config["gamma"],
             c=config["c"],
             init_state_mode=config["init_state_mode"],
+            init_gamma=config["init_gamma"],
             alpha={
                 "recons":config["alpha_recons"],
                 "HJ":config["alpha_HJ"],
@@ -207,7 +209,7 @@ def run_train_mode(config, logger):
     joblib.dump(valid_loss, config["save_model_path"]+"/valid_loss.pkl")
 
     model.load_ckpt(config["save_model_path"]+"/best.checkpoint")
-    loss, states, obs_gen = model.simulate_with_data(valid_data)
+    loss, states, obs_gen, _ = model.simulate_with_data(valid_data)
     save_simulation(config,valid_data,states,obs_gen)
     joblib.dump(loss, config["simulation_path"]+"/last_loss.pkl")
     
@@ -319,7 +321,7 @@ def run_pred_mode(config, logger):
         egy_data=np.sqrt(np.mean(ey_data,axis=1))
         os.makedirs(config["simulation_path"], exist_ok=True)
         logger.info("estimated test io gain: {}".format(np.mean(egy_data/gu)))
-        logger.info("estimated test io gain[0]: {}".format((egy_data/gu)[0]))
+        #logger.info("estimated test io gain[0]: {}".format((egy_data/gu)[0]))
         gamma=sys.get_gamma().item()
         logger.info("gamma: {}".format(gamma))
         print("[SAVE]", config["simulation_path"]+"/gain.tsv")

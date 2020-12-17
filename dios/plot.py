@@ -476,24 +476,53 @@ def plot_field(config,args):
         filename=config["result_path"]+"/sim/field_vec.npy"
         if os.path.exists(filename):
             vec = np.load(filename)
-            if vec.shape[1]==1:
-                """
-                plt.quiver(pt[:,0],0,vec[:,0],-1)
-                """
+            """
+            plt.quiver(pt[:,0],0,vec[:,0],-1)
+            """
+            if True:
                 x=pt[:,0]
                 y=pt[:,0]+vec[:,0]
                 fx=(y-x)
                 plt.plot(x,fx)
                 plt.xlabel("x")
                 plt.ylabel("f(x)")
-            else:
+                plt.title("state-space")
+                plt.grid()
+                plt.legend()
+                filename=config["result_path"]+"/field_1d.png"
+                print("[SAVE]",filename)
+                plt.savefig(filename)
+                plt.clf()
+            if vec.shape[1]>1:
                 plt.quiver(pt[:,0],pt[:,1],vec[:,0],vec[:,1])
-            plt.title("state-space")
-            plt.grid()
-            plt.legend()
-            filename=config["result_path"]+"/field.png"
-            print("[SAVE]",filename)
-            plt.savefig(filename)
+                plt.title("state-space")
+                plt.grid()
+                plt.legend()
+                filename=config["result_path"]+"/field.png"
+                print("[SAVE]",filename)
+                plt.savefig(filename)
+                plt.clf()
+            if vec.shape[1]>1:
+                #plt.quiver(pt[:,0],pt[:,1],-vec[:,1],vec[:,0])
+                pt_denom=np.sqrt(pt[:,0]**2+pt[:,1]**2).reshape((pt.shape[0],1)) # normalize
+                nv = pt/pt_denom
+                nvec=np.sum(nv*vec,axis=1,keepdims=True)*nv
+                #nvec=nvec/np.sqrt(nvec[:,0]**2+nvec[:,1]**2).reshape((nvec.shape[0],1)) # normalize
+                
+                #-vec[:,1],vec[:,0])
+                mask1=pt[:,0]<2
+                mask2=pt[:,0]>-2
+                mask3=pt[:,1]<2
+                mask4=pt[:,1]>-2
+                mask=mask1 & mask2 & mask3 & mask4
+                #plt.quiver(pt[:,0],pt[:,1],nvec[:,0],nvec[:,1])
+                plt.quiver(pt[mask,0],pt[mask,1],nvec[mask,0],nvec[mask,1])
+                plt.title("state-space")
+                plt.grid()
+                plt.legend()
+                filename=config["result_path"]+"/field_orthogonal.png"
+                print("[SAVE]",filename)
+                plt.savefig(filename)
 
 
 def main():
