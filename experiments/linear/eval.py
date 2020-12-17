@@ -2,7 +2,7 @@ import re
 import sys
 
 data={}
-items=["mean error", "data io gain", "test io gain", "stable error"]
+items=["mean error", "stable error", "data io gain", "test io gain"]
 for filename in sys.argv[1:]:
     obj={}
     for line in open(filename):
@@ -24,7 +24,7 @@ for filename,obj in data.items():
     line=[filename]
     for item in items:
         if item in obj:
-            line.append(str(obj[item]))
+            line.append("{:2.2f}".format(obj[item]))
         else:
             line.append("")
     s="\t".join(line)

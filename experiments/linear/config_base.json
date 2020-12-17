@@ -7,7 +7,9 @@
 	"alpha_gamma":0.0,
 	"alpha_state":0.0,
 	"system_scale":0.01,
-	"init_state_mode":"zero_state",
+	"weight_decay":0.0001,
+	"init_state_mode":"true_state",
+	"init_gamma":2,
 	"state_dim":2,
 	"batch_size":100,
 	"result_path":"result_base/"

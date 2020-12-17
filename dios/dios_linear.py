@@ -57,7 +57,6 @@ def run_pred_mode(config, logger):
         obs_gen.append(y_hat)
     obs_gen=np.array(obs_gen)
     ####
-    
     print("=== gain")
     if all_data.stable is not None:
         print("Enabled stable observation")
@@ -70,11 +69,11 @@ def run_pred_mode(config, logger):
     
     gu=np.sum(all_data.input**2,axis=2)
 
-    gy_data=np.mean(np.mean(yy_data,axis=1),axis=0)
-    gy_gen =np.mean(np.mean(yy_gen ,axis=1),axis=0)
-    gu=np.mean(np.mean(gu,axis=1),axis=0)
-    logger.info("data io gain: {}".format(gy_data/gu))
-    logger.info("test io gain: {}".format(gy_gen/gu))
+    gy_data=np.sqrt(np.mean(yy_data,axis=1))
+    gy_gen =np.sqrt(np.mean(yy_gen ,axis=1))
+    gu     =np.sqrt(np.mean(gu,axis=1))
+    logger.info("data io gain: {}".format(np.mean(gy_data/gu)))
+    logger.info("test io gain: {}".format(np.mean(gy_gen/gu)))
     
     ## ...plotting
     np.random.seed(1234)

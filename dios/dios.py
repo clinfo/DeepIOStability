@@ -311,7 +311,7 @@ def run_pred_mode(config, logger):
 
         gy_data=np.sqrt(np.mean(yy_data,axis=1))
         gy_gen =np.sqrt(np.mean(yy_gen ,axis=1))
-        gu=np.sqrt(np.mean(gu,axis=1))
+        gu     =np.sqrt(np.mean(gu,axis=1))
         logger.info("data io gain: {}".format(np.mean(gy_data/gu)))
         logger.info("test io gain: {}".format(np.mean(gy_gen/gu)))
         ##
@@ -319,7 +319,7 @@ def run_pred_mode(config, logger):
         egy_data=np.sqrt(np.mean(ey_data,axis=1))
         os.makedirs(config["simulation_path"], exist_ok=True)
         logger.info("estimated test io gain: {}".format(np.mean(egy_data/gu)))
-        logger.info("estimated test io gain: {}".format((egy_data/gu)[0]))
+        logger.info("estimated test io gain[0]: {}".format((egy_data/gu)[0]))
         gamma=sys.get_gamma().item()
         logger.info("gamma: {}".format(gamma))
         print("[SAVE]", config["simulation_path"]+"/gain.tsv")
