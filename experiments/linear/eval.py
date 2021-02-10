@@ -24,7 +24,7 @@ for filename,obj in data.items():
     line=[filename]
     for item in items:
         if item in obj:
-            line.append("{:2.2f}".format(obj[item]))
+            line.append("{:2.2e}".format(obj[item]))
         else:
             line.append("")
     s="\t".join(line)

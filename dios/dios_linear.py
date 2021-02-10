@@ -72,9 +72,16 @@ def run_pred_mode(config, logger):
     gy_data=np.sqrt(np.mean(yy_data,axis=1))
     gy_gen =np.sqrt(np.mean(yy_gen ,axis=1))
     gu     =np.sqrt(np.mean(gu,axis=1))
-    logger.info("data io gain: {}".format(np.mean(gy_data/gu)))
-    logger.info("test io gain: {}".format(np.mean(gy_gen/gu)))
-    
+    logger.info("mean(gu): {}".format(np.mean(gu)))
+    logger.info("mean(gy): {}".format(np.mean(gy_data)))
+    logger.info("mean(gy)/mean(gu): {}".format(np.mean(gy_data)))
+    g_data=gy_data/gu
+    g_gen=gy_gen/gu
+    g_data[g_data == np.inf] = np.nan
+    g_gen[g_gen == np.inf] = np.nan
+    logger.info("data io gain: {}".format(np.nanmean(g_data)))
+    logger.info("test io gain: {}".format(np.nanmean(g_gen)))
+    ##
     ## ...plotting
     np.random.seed(1234)
     idx_all=np.arange(n)

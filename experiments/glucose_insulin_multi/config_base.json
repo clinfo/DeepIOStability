@@ -1,7 +1,7 @@
 {
 	"epoch":300,
-	"data_train":"dataset/glucose.train",
-	"data_test": "dataset/glucose.test",
+	"data_train":"data/GlucoseInsulin00.train",
+	"data_test": "data/GlucoseInsulin00.test",
 	"result_path":"result_base/",
 	"learning_rate":0.01,
 	"system_scale":0.01,

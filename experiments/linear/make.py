@@ -1,20 +1,25 @@
 import numpy  as np
-import pandas as pd
-import matplotlib.pyplot as plt
-n = 2
-np.random.seed(0)
-A = np.array([[-0.5,0.1],[0.1,-0.3]])
+
+
+m = 1
+d = 1
+k = 1
+
+A = np.array([[0,1],[-k/m,-d/m]])
 B = np.array([[1.0],[0]])
-C = np.array([[1.0,1.0]])
+C = np.array([[1.0,0]])
 
 def f(x,u):
     return  A.dot(x.reshape(-1,1)) + B.dot(u)
 N = 10000
+M=9000
 dh = 1e-1
 T = 10
 times = np.arange(0,T,dh)
 step = times.shape[0]
+n =  A.shape[0]
 
+np.random.seed(0)
 
 
 x_data = np.zeros((N,times.shape[0],n))
@@ -22,10 +27,9 @@ u_data = np.zeros((N,times.shape[0],1))
 y_data = np.zeros((N,times.shape[0],1))
 
 for i_N in range(N):
-    input_t=np.random.randint(0,step-1,10)
-    u=np.zeros((step))
-    for t in input_t:
-        u[t]=1.0
+
+# random binary input
+    u=2 * np.random.randint(0,2,[step]) -1
 
     x = np.zeros((times.shape[0],n))
 
@@ -44,7 +48,6 @@ for i_N in range(N):
     x_data[i_N,:,:] = x
     y_data[i_N,:,0] = y
 
-M=9000
 y=np.array(y_data,dtype=np.float32)
 u=np.array(u_data,dtype=np.float32)
 x=np.array(x_data,dtype=np.float32)

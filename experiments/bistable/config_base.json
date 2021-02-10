@@ -3,13 +3,25 @@
 	"data_train":"data/bistable_2step.train",
 	"data_test":"data/bistable_2step.test",
 	"learning_rate":0.01,
-	"system_scale":0.01,
 	"save_model_path":"model",
 	"init_state_mode":"true_state",
-	"alpha_recons":1.0,
 	"alpha_HJ":0.0,
 	"alpha_gamma":0.0,
 	"alpha_state":0.0,
+	"system_scale":0.01,
+	"hidden_layer_f": [
+        	32,
+       		32
+    	],
+    	"hidden_layer_g": [
+        	32,
+        	32
+    	],
+    	"hidden_layer_h": [
+        	32,
+		32
+	],
+	"weight_decay":0.0001,
 	"delta_t":1,
 	"state_dim":1,
 	"batch_size":100,
