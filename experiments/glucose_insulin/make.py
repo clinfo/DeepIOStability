@@ -31,6 +31,7 @@ T = Ra.shape[1]
 times = np.arange(0,T,dh)
 
 N = 10000
+M = 9000
 
 u_data = np.zeros((N,times.shape[0],1))
 x_data = np.zeros((N,times.shape[0],3))
@@ -51,11 +52,14 @@ for i_sample in range(N):
         X[k+1] = X[k] + dh * (G[k] - G[k-tau])
     
     y = np.c_[G,I]    
+    x = np.c_[G,I,X]
     u_data[i_sample,:,:] = u
-    x_data[i_sample,:,:] = X
+    x_data[i_sample,:,:] = x
     y_data[i_sample,:,:] = y
     ys_data[i_sample,:,:] = np.c_[Gs * np.ones((times.shape[0])),Is * np.ones((times.shape[0]))]
 
+
+os.makedirs("dataset",exist_ok=True)
 
 x_max=np.max(x_data[:,:,:])
 y_max=np.max(y_data[:,:,:])
@@ -71,11 +75,10 @@ minmax_data={"name":"glucose_insulin",
         "x_min":x_min,"y_min":y_min,"u_min":u_min,
         }
 filename="dataset/minmax_data.json"
-json.dump(max_data,open(filename,"w"))
+json.dump(minmax_data,open(filename,"w"))
 print("[SAVE]",filename)
 
 
-os.makedirs("dataset",exist_ok=True)
 filename="dataset/glucose_insulin.train.obs.npy"
 print("[SAVE]",filename)
 print(y_data[:M].shape)
