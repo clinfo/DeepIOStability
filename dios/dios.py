@@ -180,32 +180,38 @@ def run_train_mode(config, logger):
     hidden_layer_h=config["hidden_layer_h"]
     hidden_layer_f=config["hidden_layer_f"]
     hidden_layer_g=config["hidden_layer_g"]
-    sys = SimpleSystem(obs_dim, state_dim, input_dim,
-            hidden_layer_h=hidden_layer_h,
-            hidden_layer_f=hidden_layer_f,
-            hidden_layer_g=hidden_layer_g,
-            delta_t=config["delta_t"],
-            gamma=config["gamma"],
-            c=config["c"],
-            init_state_mode=config["init_state_mode"],
-            init_gamma=config["init_gamma"],
-            alpha={
-                "recons":config["alpha_recons"],
-                "HJ":config["alpha_HJ"],
-                "gamma":config["alpha_gamma"],
-                "state":config["alpha_state"],
-                "HJ_dvf":config["alpha_HJ_dvf"],
-                "HJ_hh":config["alpha_HJ_hh"],
-                "HJ_gg":config["alpha_HJ_gg"],},
-            hj_loss_type=config["hj_loss_type"],
-            diag_g=config["diag_g"],
-            scale=config["system_scale"],
-            v_type=config["v_type"],
-            device=device
-            )
-    # training NN from data
-    model = DiosSSM(config, sys, device=device)
-    train_loss,valid_loss=model.fit(train_data, valid_data)
+    flag=False
+    max_retry=10
+    retry_cnt=0
+    while not flag or retry_cnt > max_retry:
+        sys = SimpleSystem(obs_dim, state_dim, input_dim,
+                hidden_layer_h=hidden_layer_h,
+                hidden_layer_f=hidden_layer_f,
+                hidden_layer_g=hidden_layer_g,
+                delta_t=config["delta_t"],
+                gamma=config["gamma"],
+                c=config["c"],
+                init_state_mode=config["init_state_mode"],
+                init_gamma=config["init_gamma"],
+                alpha={
+                    "recons":config["alpha_recons"],
+                    "HJ":config["alpha_HJ"],
+                    "gamma":config["alpha_gamma"],
+                    "state":config["alpha_state"],
+                    "HJ_dvf":config["alpha_HJ_dvf"],
+                    "HJ_hh":config["alpha_HJ_hh"],
+                    "HJ_gg":config["alpha_HJ_gg"],},
+                hj_loss_type=config["hj_loss_type"],
+                diag_g=config["diag_g"],
+                scale=config["system_scale"],
+                v_type=config["v_type"],
+                device=device
+                )
+        # training NN from data
+        model = DiosSSM(config, sys, device=device)
+        train_loss,valid_loss,flag=model.fit(train_data, valid_data)
+        retry_cnt+=1
+
     joblib.dump(train_loss, config["save_model_path"]+"/train_loss.pkl")
     joblib.dump(valid_loss, config["save_model_path"]+"/valid_loss.pkl")
 

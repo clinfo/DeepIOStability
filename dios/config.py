@@ -16,14 +16,18 @@ def main():
     ## config
     for key, val in get_default_config().items():
         if type(val) is int:
-            parser.add_argument("--"+key, type=int, default=val, help="[config integer]")
+            parser.add_argument("--"+key, type=int, default=None, help="[config integer]")
         elif type(val) is float:
-            parser.add_argument("--"+key, type=float, default=val, help="[config float]")
+            parser.add_argument("--"+key, type=float, default=None, help="[config float]")
         elif type(val) is bool:
-            parser.add_argument("--"+key, type=bool, default=val, help="[config float]")
+            parser.add_argument("--"+key, type=bool, default=None, help="[config float]")
             #parser.add_argument("--"+key, action="store_true", help="[config bool]")
         else:
-            parser.add_argument("--"+key, type=str, default=val, help="[config string]")
+            parser.add_argument("--"+key, type=str, default=None, help="[config string]")
+    add_opt=["result_path"]
+    for key in add_opt:
+        parser.add_argument("--"+key, type=str, default=None, help="[config string]")
+
     args = parser.parse_args()
     #
     config={}
@@ -35,8 +39,14 @@ def main():
         print("[LOAD]",args.config)
         fp = open(args.config, "r")
         config.update(json.load(fp))
-    for key, val in get_default_config().items():
-        config[key]=getattr(args,key)
+    for key, _ in get_default_config().items():
+        val=getattr(args,key)
+        if val is not None:
+            config[key]=getattr(args,key)
+    for key in add_opt:
+        val=getattr(args,key)
+        if val is not None:
+            config[key]=getattr(args,key)
     #
     if args.save_config is not None:
         print("[SAVE] config: ", args.save_config)

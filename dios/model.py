@@ -217,7 +217,11 @@ class DiosSSM:
             ## Early stopping
             l=valid_loss_logger.get_loss()
             if np.isnan(l):
-                break
+                self.logger.info("... nan is detected in training")
+                return train_loss_logger, valid_loss_logger, False
+            elif epoch >20 and l>1.0e15,:
+                self.logger.info("... loss is too learge")
+                return train_loss_logger, valid_loss_logger, False
             if prev_valid_loss is None or l < prev_valid_loss:
                 patient_count=0
             else:
@@ -252,4 +256,4 @@ class DiosSSM:
                 "({:2d})".format(patient_count),
                 ckpt_msg,])
             self.logger.info(msg)
-        return train_loss_logger, valid_loss_logger
+        return train_loss_logger, valid_loss_logger, True
