@@ -16,6 +16,7 @@ import joblib
 import json
 import argparse
 
+import dios
 from dios.data_util import load_data
 from dios.model import DiosSSM
 from dios.simple_system import SimpleSystem

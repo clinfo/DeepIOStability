@@ -24,6 +24,7 @@ setuptools.setup(
             "dios-get-opt= dios.get_opt:main",
             "dios-plot = dios.plot:main",
             "dios-eval = dios.eval:main",
+            "dios-config = dios.config:main",
             "dios-dataset = dios.data.generator:main",
             "dios-field-plot = dios.dios_field_plot:main",
             "dios-map = dios.mapping:main",
