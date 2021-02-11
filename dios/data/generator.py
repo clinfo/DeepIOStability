@@ -29,7 +29,7 @@ def main():
     args = parser.parse_args()
     if args.mode in modes:
         mod = import_module("dios.data."+args.mode+"")
-        mod.generate_dataset(N = args.num, M = args.test_num, name = args.prefix+args.mode, path=args.path):
+        mod.generate_dataset(N = args.num, M = args.test_num, name = args.prefix+args.mode, path=args.path)
     else:
         print("unknown mode:"+args.mode)
 
