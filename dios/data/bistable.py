@@ -55,7 +55,7 @@ def generate(N=20000):
 
     ys = np.ones(x.shape)
     ys[x<0] = -1
-    return x,u,y,ys
+    return x,u,x,ys
 
 def generate_dataset(N = 20000,M = 18000,name = "bistable", path="dataset"):
     x_data, u_data, y_data, ys_data = generate(N)

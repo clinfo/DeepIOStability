@@ -26,6 +26,18 @@ def main():
             parser.add_argument("--"+key, type=str, default=val, help="[config string]")
     args = parser.parse_args()
     #
+    config={}
+    for key, val in get_default_config().items():
+        config[key]=getattr(args,key)
+    if args.config is None:
+        if not args.no_config:
+            parser.print_help()
+            quit()
+    else:
+        print("[LOAD]",args.config)
+        fp = open(args.config, "r")
+        config.update(json.load(fp))
+    #
     if args.save_config is not None:
         print("[SAVE] config: ", args.save_config)
         fp = open(args.save_config, "w")
