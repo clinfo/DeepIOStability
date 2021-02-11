@@ -5,8 +5,8 @@ import glob
 import os
 from numba import jit
 import json
-from util import minmax_normalize, save_dataset
-import glucose
+from dios.data.util import minmax_normalize, save_dataset
+import  dios.data.glucose
 
 def generate(N, Ra):
     # Sub4
@@ -50,7 +50,7 @@ def generate(N, Ra):
             I[k+1] = I[k] + dh * (-k3 * I[k] + k4/tau *X[k])
             X[k+1] = X[k] + dh * (G[k] - G[k-tau])
         
-        y = np.c_[G,I]    
+        y = np.c_[G,I]
         x = np.c_[G,I,X]
         u_data[i_sample,:,:] = u
         x_data[i_sample,:,:] = x
@@ -62,7 +62,7 @@ def generate_dataset():
     N = 10000
     M = 9000
     name = "glucose_insulin"
-    x, _, _, _ = glucose.generate(N)
+    x, _, _, _ =  dios.data.glucose.generate(N)
     x_data, u_data, y_data, ys_data = generate(N, Ra=x)
     x_data, u_data, y_data = minmax_normalize(x_data,u_data,y_data, path="dataset", name=name)
     save_dataset(x_data, u_data, y_data, ys_data, M=M, path="dataset", name=name)

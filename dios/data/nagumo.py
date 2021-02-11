@@ -3,7 +3,7 @@ from numba import jit
 import json
 import glob
 import os
-from util import minmax_normalize, save_dataset
+from dios.data.util import minmax_normalize, save_dataset
 
 
 @jit
