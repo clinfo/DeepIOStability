@@ -102,13 +102,19 @@ for i_sample in range(N):
 x_max=np.max(x_data[:,:,:])
 y_max=np.max(y_data[:,:,:])
 u_max=np.max(u_data[:,:,:])
-x_data=x_data/x_max
-y_data=y_data/y_max
-u_data=u_data/u_max
-max_data={"name":"glucose","x_max":x_max,"y_max":y_max,"u_max":u_max}
-json.dump(max_data,open("dataset/max_data.json","w"))
-print("[SAVE]","dataset/max_data.json")
-
+x_min=np.min(x_data[:,:,:])
+y_min=np.min(y_data[:,:,:])
+u_min=np.min(u_data[:,:,:])
+x_data=(x_data-x_min)/(x_max-x_min)
+y_data=(y_data-y_min)/(y_max-y_min)
+u_data=(u_data-u_min)/(u_max-u_min)
+minmax_data={"name":"glucose_insulin",
+        "x_max":x_max,"y_max":y_max,"u_max":u_max,
+        "x_min":x_min,"y_min":y_min,"u_min":u_min,
+        }
+filename="dataset/minmax_data.json"
+json.dump(minmax_data,open(filename,"w"))
+print("[SAVE]",filename)
 
 os.makedirs("dataset",exist_ok=True)
 filename="dataset/glucose.train.obs.npy"
