@@ -5,6 +5,27 @@ from numba import jit
 import json
 from dios.data.util import minmax_normalize, save_dataset
 
+k_max = 0.0558
+k_min = 0.0080
+k_abs = 0.057
+k_gri =0.0558
+f = 0.9
+
+b = 0.82
+c = 0.010
+
+
+BW = 78
+
+D0 = BW * 1.0 * 1000
+
+alpha = 0.00013
+beta = 0.00236
+
+D_alpha = 6.40e4
+D_beta = 7.80e2
+
+
 @jit
 def k_empty(Qsto):
     return k_min + (k_max-k_min)/2 * (np.tanh(alpha*(Qsto - D_alpha)) - np.tanh(beta*(Qsto - D_beta))+2)
@@ -23,26 +44,6 @@ def fq(x,u):
 
 def generate(N):
     #  Normal value
-    k_max = 0.0558
-    k_min = 0.0080
-    k_abs = 0.057
-    k_gri =0.0558
-    f = 0.9
-
-    b = 0.82
-    c = 0.010
-
-
-    BW = 78
-
-    D0 = BW * 1.0 * 1000
-
-    alpha = 0.00013
-    beta = 0.00236
-
-    D_alpha = 6.40e4
-    D_beta = 7.80e2
-
     dh = 1e-0
     T = 300
     times = np.arange(0,T,dh)
