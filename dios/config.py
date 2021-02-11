@@ -27,8 +27,6 @@ def main():
     args = parser.parse_args()
     #
     config={}
-    for key, val in get_default_config().items():
-        config[key]=getattr(args,key)
     if args.config is None:
         if not args.no_config:
             parser.print_help()
@@ -37,6 +35,8 @@ def main():
         print("[LOAD]",args.config)
         fp = open(args.config, "r")
         config.update(json.load(fp))
+    for key, val in get_default_config().items():
+        config[key]=getattr(args,key)
     #
     if args.save_config is not None:
         print("[SAVE] config: ", args.save_config)

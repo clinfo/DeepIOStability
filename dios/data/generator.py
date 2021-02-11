@@ -24,7 +24,7 @@ def main():
         "--num", type=int, default=10000, help="#data"
     )
     parser.add_argument(
-        "--test_num", type=int, default=9000, help="#test_data"
+        "--train_num", type=int, default=9000, help="#train_data"
     )
     args = parser.parse_args()
     if args.mode in modes:
