@@ -21,6 +21,7 @@ def minmax_normalize(x_data,u_data,y_data,ys_data, path="dataset", name="none"):
             "x_min":x_min,"y_min":y_min,"u_min":u_min,
             }
     filename=path+"/minmax_data.json"
+    os.makedirs(path,exist_ok=True)
     json.dump(minmax_data,open(filename,"w"))
     print("[SAVE]",filename)
     return x_data, u_data, y_data, ys_data

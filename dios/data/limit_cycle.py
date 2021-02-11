@@ -44,9 +44,9 @@ def generate(N):
     
     return x, u, y, ys
 
-def generate_dataset(N = 10000,M = 9000,name = "limit_cycle"):
+def generate_dataset(N = 10000,M = 9000,name = "limit_cycle", path="dataset"):
     x_data, u_data, y_data, ys_data = generate(N)
-    x_data, u_data, y_data, ys_data = minmax_normalize(x_data,u_data,y_data, ys_data, path="dataset", name=name)
-    save_dataset(x_data, u_data, y_data, ys_data, M=M, path="dataset", name=name)
+    x_data, u_data, y_data, ys_data = minmax_normalize(x_data,u_data,y_data, ys_data, path=path, name=name)
+    save_dataset(x_data, u_data, y_data, ys_data, M=M, path=path, name=name)
 
 
