@@ -524,3 +524,5 @@ class SimpleSystem(torch.nn.Module):
             return loss, state_generated, obs_generated, hh
         else:
             return loss
+
+

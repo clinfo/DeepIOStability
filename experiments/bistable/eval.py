@@ -2,7 +2,7 @@ import re
 import sys
 
 data={}
-items=["mean error", "data io gain", "test io gain", "stable error"]
+items=["mean error", "data io gain", "test io gain", "stable error", "gamma"]
 for filename in sys.argv[1:]:
     obj={}
     for line in open(filename):

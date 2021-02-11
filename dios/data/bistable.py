@@ -57,12 +57,9 @@ def generate(N=20000):
     ys[x<0] = -1
     return x,u,y,ys
 
-def generate_dataset():
-    N = 20000
-    M = 18000
-    name = "bistable"
+def generate_dataset(N = 20000,M = 18000,name = "bistable"):
     x_data, u_data, y_data, ys_data = generate(N)
-    x_data, u_data, y_data = minmax_normalize(x_data,u_data,y_data, path="dataset", name=name)
+    x_data, u_data, y_data, ys_data = minmax_normalize(x_data, u_data, y_data, ys_data, path="dataset", name=name)
     save_dataset(x_data, u_data, y_data, ys_data, M=M, path="dataset", name=name)
 
 

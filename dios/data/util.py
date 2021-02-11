@@ -4,7 +4,7 @@ import os
 from numba import jit
 import json
 
-def minmax_normalize(x_data,u_data,y_data, path="dataset", name="none"):
+def minmax_normalize(x_data,u_data,y_data,ys_data, path="dataset", name="none"):
     x_max=np.max(x_data[:,:,:])
     y_max=np.max(y_data[:,:,:])
     u_max=np.max(u_data[:,:,:])
@@ -14,6 +14,8 @@ def minmax_normalize(x_data,u_data,y_data, path="dataset", name="none"):
     x_data=(x_data-x_min)/(x_max-x_min)
     y_data=(y_data-y_min)/(y_max-y_min)
     u_data=(u_data-u_min)/(u_max-u_min)
+    if ys_data is not None:
+        ys_data=(ys_data-y_min)/(y_max-y_min)
     minmax_data={"name":name,
             "x_max":x_max,"y_max":y_max,"u_max":u_max,
             "x_min":x_min,"y_min":y_min,"u_min":u_min,
@@ -21,7 +23,7 @@ def minmax_normalize(x_data,u_data,y_data, path="dataset", name="none"):
     filename=path+"/minmax_data.json"
     json.dump(minmax_data,open(filename,"w"))
     print("[SAVE]",filename)
-    return x_data, u_data, y_data
+    return x_data, u_data, y_data, ys_data
 
 
 def save_dataset(x_data, u_data, y_data, ys_data, M, path="dataset", name="none"):

@@ -58,13 +58,10 @@ def generate(N, Ra):
         ys_data[i_sample,:,:] = np.c_[Gs * np.ones((times.shape[0])),Is * np.ones((times.shape[0]))]
     return x_data, u_data, y_data, ys_data
 
-def generate_dataset():
-    N = 10000
-    M = 9000
-    name = "glucose_insulin"
+def generate_dataset(N = 10000,M = 9000,name = "glucose_insulin"):
     x, _, _, _ =  dios.data.glucose.generate(N)
     x_data, u_data, y_data, ys_data = generate(N, Ra=x)
-    x_data, u_data, y_data = minmax_normalize(x_data,u_data,y_data, path="dataset", name=name)
+    x_data, u_data, y_data, ys_data = minmax_normalize(x_data,u_data,y_data, ys_data, path="dataset", name=name)
     save_dataset(x_data, u_data, y_data, ys_data, M=M, path="dataset", name=name)
 
 

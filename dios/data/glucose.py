@@ -98,11 +98,8 @@ def generate(N):
         ys_data[i_sample,:,:] = np.zeros(y.shape)
     return x_data, u_data, y_data, ys_data
 
-def generate_dataset():
-    N = 10000
-    M = 9000
-    name = "glucose"
+def generate_dataset(N = 10000,M = 9000,name = "glucose"):
     x_data, u_data, y_data, ys_data = generate(N)
-    x_data, u_data, y_data = minmax_normalize(x_data,u_data,y_data, path="dataset", name=name)
+    x_data, u_data, y_data, ys_data  = minmax_normalize(x_data, u_data, y_data, ys_data, path="dataset", name=name)
     save_dataset(x_data, u_data, y_data, ys_data, M=M, path="dataset", name=name)
 

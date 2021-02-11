@@ -80,12 +80,9 @@ def generate(N):
     #ys=np.array(ys,dtype=np.float32)
     return x, u, y, None
 
-def generate_dataset():
-    N = 10000
-    M = 9000
-    name = "nagumo"
+def generate_dataset(N = 10000,M = 9000,name = "nagumo"):
     x_data, u_data, y_data, ys_data = generate(N)
-    x_data, u_data, y_data = minmax_normalize(x_data,u_data,y_data, path="dataset", name=name)
+    x_data, u_data, y_data, ys_data = minmax_normalize(x_data,u_data,y_data, ys_data, path="dataset", name=name)
     save_dataset(x_data, u_data, y_data, ys_data, M=M, path="dataset", name=name)
 
 

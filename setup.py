@@ -23,6 +23,7 @@ setuptools.setup(
             "dios-opt= dios.opt:main",
             "dios-get-opt= dios.get_opt:main",
             "dios-plot = dios.plot:main",
+            "dios-eval = dios.eval:main",
             "dios-field-plot = dios.dios_field_plot:main",
             "dios-map = dios.mapping:main",
         ],
