@@ -10,7 +10,7 @@ from dios.data.util import minmax_normalize, save_dataset
 def f(x,u):
     dx0 =  x[:,0] - x[:,1]  - x[:,0] * (x[:,0]**2 +x[:,1]**2) + x[:,0] * u[:,0]
     dx1 =  x[:,0] + x[:,1]  - x[:,1] * (x[:,0]**2 +x[:,1]**2) +x[:,1] * u[:,0]
-    return  np.array([dx0,dx1]).T
+    return  np.stack((dx0,dx1)).T
 
 def generate(N):
     np.random.seed(0)

@@ -2,6 +2,7 @@ import numpy as np
 import glob
 import os
 from numba import jit
+from dios.dios import NumPyArangeEncoder
 import json
 
 def minmax_normalize(x_data,u_data,y_data,ys_data, path="dataset", name="none"):
@@ -22,7 +23,8 @@ def minmax_normalize(x_data,u_data,y_data,ys_data, path="dataset", name="none"):
             }
     filename=path+"/minmax_data.json"
     os.makedirs(path,exist_ok=True)
-    json.dump(minmax_data,open(filename,"w"))
+    json.dump(minmax_data,open(filename,"w"),
+            cls=NumPyArangeEncoder)
     print("[SAVE]",filename)
     return x_data, u_data, y_data, ys_data
 

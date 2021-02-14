@@ -6,8 +6,7 @@ import json
 from dios.data.util import minmax_normalize, save_dataset
 
 
-@jit
-def f(x,u):
+def f(x,u,A,B):
     return  A.dot(x.reshape(-1,1)) + B.dot(u)
 
 def generate(N):
@@ -46,7 +45,7 @@ def generate(N):
         x[0] = x0
 
         for k in range(times.shape[0]-1):
-            x[k+1] = x[k] + dh*f(x[k],u[k]).reshape(-1)
+            x[k+1] = x[k] + dh*f(x[k],u[k],A,B).reshape(-1)
 
         y = C.dot(x.T)
 
