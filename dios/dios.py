@@ -184,6 +184,7 @@ def run_train_mode(config, logger):
     max_retry=10
     retry_cnt=0
     while not flag and retry_cnt < max_retry:
+        logger.info("... trial: {}".format(retry_cnt))
         sys = SimpleSystem(obs_dim, state_dim, input_dim,
                 hidden_layer_h=hidden_layer_h,
                 hidden_layer_f=hidden_layer_f,
