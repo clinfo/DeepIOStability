@@ -14,7 +14,7 @@ def f(x,u):
     dx0 =  c*(x[:,0] + x[:,1]  - (x[:,0] **3)/3 + u[:,0])
     dx1 =  (-x[:,0] - b*x[:,1] + a)/c
     
-    return  np.array([dx0,dx1]).T
+    return  np.stack((dx0,dx1)).T
 
 @jit
 def get_stable_x():
