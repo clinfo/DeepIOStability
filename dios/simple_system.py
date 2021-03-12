@@ -56,7 +56,7 @@ class SimpleV1(torch.nn.Module):
 
     def forward(self, x):
         v1 = x - self.pt1
-        v1 = (v1 ** 2).sum(dim=(2,))
+        v1 = (v1 ** 2).sum(dim=(-1,))
         vv = torch.stack([v1])
         min_vv, min_index = torch.min(vv, dim=0)
         return min_vv,min_index     
@@ -82,8 +82,8 @@ class SimpleV2(torch.nn.Module):
     def forward(self, x):
         v1 = x - self.pt1
         v2 = x - self.pt2
-        v1 = (v1 ** 2).sum(dim=(2,))
-        v2 = (v2 ** 2).sum(dim=(2,))
+        v1 = (v1 ** 2).sum(dim=(-1,))
+        v2 = (v2 ** 2).sum(dim=(-1,))
         vv = torch.stack([v1, v2])
         min_vv, min_index = torch.min(vv, dim=0)
         return min_vv,min_index
@@ -114,7 +114,7 @@ class SimpleV3(torch.nn.Module):
         vv=[]
         for pt in self.pts:
             v1 = x - pt
-            v1 = (v1 ** 2).sum(dim=(2,))
+            v1 = (v1 ** 2).sum(dim=(-1,))
             vv.append(v1)
         vv = torch.stack(vv)
         min_vv, min_index = torch.min(vv, dim=0)
@@ -162,6 +162,7 @@ class SimpleSystem(torch.nn.Module):
         hidden_layer_f=None,
         hidden_layer_g=None,
         diag_g=True,
+        stable_f=True,
         scale=0.1,
         v_type="single",
         init_gamma=5,
@@ -202,6 +203,7 @@ class SimpleSystem(torch.nn.Module):
 
         self._input_state_eye = torch.eye(self.input_dim, self.state_dim,device=device)
         self.param_gamma = nn.Parameter(torch.randn(1)[0]+init_gamma)
+        self.stable_f=stable_f
 
     def func_g_mat(self, x):
         if self.diag_g:
@@ -294,6 +296,21 @@ class SimpleSystem(torch.nn.Module):
         h_mu = self.func_h(mu)
         return torch.sum((hx-h_mu)**2, dim=-1)
 
+    def compute_f(self, x):
+        if self.stable_f:
+            x_=torch.tensor(x,requires_grad=True)
+            v,i_v = self.func_v(x_)
+            # v is independet w.r.t. batch and time
+            dv = torch.autograd.grad(v.sum(), x_, create_graph=True)[0]
+            hj_dvf = torch.sum(dv * self.func_f(x_), dim=-1)
+            dv_det = torch.sum(dv **2, dim=-1)
+            scale=F.relu(hj_dvf)/dv_det
+            f_new= self.func_f(x) - dv * scale.unsqueeze(-1)
+            return f_new
+        else:
+            ## standard
+            return self.func_f(x)
+
     def compute_HJ_hh(self, x, i_v=None):
         if i_v is None:
             _,i_v = self.func_v(x)
@@ -328,7 +345,7 @@ class SimpleSystem(torch.nn.Module):
         v,i_v = self.func_v(x)
         # v is independet w.r.t. batch and time
         dv = torch.autograd.grad(v.sum(), x, create_graph=True)[0]
-        hj_dvf = torch.sum(dv * self.func_f(x), dim=-1)
+        hj_dvf = torch.sum(dv * self.compute_f(x), dim=-1)
         if self.gamma is None:
             gamma = (1.0e-4+F.relu(self.param_gamma))
         else:
@@ -363,10 +380,10 @@ class SimpleSystem(torch.nn.Module):
             ug = self.vecmat_mul(u, g)
             ###
             next_state = (
-                current_state + (self.func_f(current_state) + ug) * self.delta_t
+                current_state + (self.compute_f(current_state) + ug) * self.delta_t
             )
         else:
-            next_state = current_state + self.func_f(current_state) * self.delta_t
+            next_state = current_state + self.compute_f(current_state) * self.delta_t
         return next_state
 
     def simulate(self, init_state, batch_size, step, input_=None):
