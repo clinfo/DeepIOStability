@@ -3,6 +3,7 @@ import joblib
 import json
 import argparse
 
+from distutils.util import strtobool
 from dios.dios import get_default_config, NumPyArangeEncoder
 
 def main():
@@ -20,7 +21,7 @@ def main():
         elif type(val) is float:
             parser.add_argument("--"+key, type=float, default=None, help="[config float]")
         elif type(val) is bool:
-            parser.add_argument("--"+key, type=bool, default=None, help="[config float]")
+            parser.add_argument("--"+key, type=strtobool, default=None, help="[config bool]")
             #parser.add_argument("--"+key, action="store_true", help="[config bool]")
         else:
             parser.add_argument("--"+key, type=str, default=None, help="[config string]")

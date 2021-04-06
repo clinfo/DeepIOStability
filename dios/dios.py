@@ -111,6 +111,7 @@ def get_default_config():
     config["alpha_state"]=1.0
     config["hj_loss_type"]="const"
     config["diag_g"]=True
+    config["stable_f"] = True
     
     config["weight_decay"] = 0.01
     config["hidden_layer_f"] = [32]
@@ -206,6 +207,7 @@ def run_train_mode(config, logger):
                 diag_g=config["diag_g"],
                 scale=config["system_scale"],
                 v_type=config["v_type"],
+                stable_f=config["stable_f"],
                 device=device
                 )
         # training NN from data
@@ -287,6 +289,7 @@ def run_pred_mode(config, logger):
             diag_g=config["diag_g"],
             scale=config["system_scale"],
             v_type=config["v_type"],
+            stable_f=config["stable_f"],
             device=device
             )
 
