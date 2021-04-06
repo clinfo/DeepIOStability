@@ -26,6 +26,7 @@ for filename in filenames:
             method1="nn"
             if "_base" in setting_key:
                 method2="vanilla"
+                arr[5]="" # for gamma 
             else:
                 method2="IO-Stability"
         data.append([name,method1,method2]+arr)
