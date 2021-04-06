@@ -55,11 +55,18 @@ class SimpleV1(torch.nn.Module):
         return [("point",self.pt1)]
 
     def forward(self, x):
+        """
+        Args:
+            x (tensor): batch (x time) x state dimension
+        Returns:
+            min_vv (tensor): batch (x time)
+            min_index (tensor): batch (x time)
+        """
         v1 = x - self.pt1
         v1 = (v1 ** 2).sum(dim=(-1,))
         vv = torch.stack([v1])
         min_vv, min_index = torch.min(vv, dim=0)
-        return min_vv,min_index     
+        return min_vv,min_index
 
 class SimpleV2(torch.nn.Module):
     def __init__(self, in_dim, device=None):
@@ -80,6 +87,13 @@ class SimpleV2(torch.nn.Module):
         return [("point",self.pt1),("point",self.pt2)]
 
     def forward(self, x):
+        """
+        Args:
+            x (tensor): batch (x time) x state dimension
+        Returns:
+            min_vv (tensor): batch (x time)
+            min_index (tensor): batch (x time)
+        """
         v1 = x - self.pt1
         v2 = x - self.pt2
         v1 = (v1 ** 2).sum(dim=(-1,))
@@ -111,6 +125,13 @@ class SimpleV3(torch.nn.Module):
         return [("point",pt) for pt in self.pts]
 
     def forward(self, x):
+        """
+        Args:
+            x (tensor): batch (x time) x state dimension
+        Returns:
+            min_vv (tensor): batch (x time)
+            min_index (tensor): batch (x time)
+        """
         vv=[]
         for pt in self.pts:
             v1 = x - pt
@@ -136,6 +157,13 @@ class SimpleV4(torch.nn.Module):
         return [("limit_cycle",self.pt1)]
 
     def forward(self, x):
+        """
+        Args:
+            x (tensor): batch (x time) x state dimension
+        Returns:
+            min_vv (tensor): batch (x time)
+            min_index (tensor): batch (x time)
+        """
         eps=1.0e-4
         nx=x/(torch.sqrt(torch.sum(x**2,dim=-1,keepdim=True))+eps)
         d=torch.sum((x-nx)**2,dim=-1)
@@ -206,10 +234,14 @@ class SimpleSystem(torch.nn.Module):
         self.stable_f=stable_f
 
     def func_g_mat(self, x):
+        """
+        Args:
+            x (tensor): batch (x time) x state dimension
+        Returns:
+            g(x) (tensor): batch  (x time) x input dimension x state dimension
+        """
         if self.diag_g:
             if len(x.shape) == 2:  # batch_size x state_dim
-                #print(x.shape)
-                #print((self.input_dim, self.state_dim))
                 g = self.func_g_vec(x)
                 temp = self._input_state_eye
                 temp = temp.reshape((1, self.input_dim, self.state_dim))
@@ -234,6 +266,7 @@ class SimpleSystem(torch.nn.Module):
             else:
                 print("error", x.shape)
             return g
+
     def get_gamma(self):
         if self.gamma is None:
             return self.param_gamma
@@ -245,7 +278,7 @@ class SimpleSystem(torch.nn.Module):
         h_mu_list=[]
         for mu_type, mu in mu_list:
             if mu_type=="point":
-                h_mu = self.func_h(mu)
+                h_mu = self.compute_h(mu)
                 h_mu_list.append(h_mu)
             else:
                 h_mu_list.append(None)
@@ -255,19 +288,24 @@ class SimpleSystem(torch.nn.Module):
         cyc_list=self.func_v.get_limit_cycles()
         #h_cyc_list=[]
         #for mu in mu_list:
-        #    h_mu = self.func_h(mu)
+        #    h_mu = self.compute_h(mu)
         #    h_mu_list.append(h_mu)
         return None, cyc_list
     
 
-    def _unit_limit_cycle_distance(self,hx,n_sample=100):
+    def _unit_limit_cycle_distance(self,hx,n_sample=100, with_nearest_point=False):
         """
         Args:
             hx (tensor): batch x time x observation dimension
             n_sample (int): the number of samples
-        
         Returns:
             squared_distances (tensor): batch x time
+            min || hx - h(mu) ||^2
+              mu ~ (r*cos(theta), r*sin(theta))
+              theta ~ -pi - pi
+              r=1
+
+            nearest_points (tensor): batch x time x state_dim
         """
         # random sampling from a unit circle
         theta=(torch.rand((n_sample,),device=self.device)-0.5)*2*math.pi
@@ -275,7 +313,11 @@ class SimpleSystem(torch.nn.Module):
         mu1= r*torch.cos(theta)
         mu2= r*torch.sin(theta)
         mu = torch.stack([mu1,mu2]).T
-        hmu = self.func_h(mu)
+        # mu: n_sample x 2
+        if self.state_dim>2:
+            pad=torch.zeros((n_sample,self.state_dim-2),device=self.device)
+            mu=torch.cat([mu,pad],dim=-1)
+        hmu = self.compute_h(mu)
         # hmu: n_sample x observation dimension
         d_list=[]
         for i in range(n_sample):
@@ -283,20 +325,57 @@ class SimpleSystem(torch.nn.Module):
             d_list.append(d)
         dd=torch.stack(d_list)
         min_d,min_i=torch.min(dd,dim=0)
-        return min_d
-    
-    def _distance(self,hx,mu):
+        if with_nearest_point:
+            return min_d, hmu[min_i,:]
+        else:
+            return min_d
+
+    def _distance(self,hx,mu, with_nearest_point=False):
         """
         Args:
             hx (tensor): batch x time x observation dimension
             mu (tensor): batch x time x state dimension
         Returns:
             squared_distances (tensor): batch x time
+            nearest_points (tensor): batch x time x state_dim
         """
-        h_mu = self.func_h(mu)
-        return torch.sum((hx-h_mu)**2, dim=-1)
+        h_mu = self.compute_h(mu)
+        d=torch.sum((hx-h_mu)**2, dim=-1)
+        if with_nearest_point:
+            return d, h_mu
+        else:
+            return d
+
+    def compute_Pdv(self, dv):
+        """
+        Args:
+            dv (tensor): batch (x time) x state dimension
+        Returns:
+            Pdv (tensor): batch (x time) x state dimension x state dimension 
+        """
+        dv_mat = torch.unsqueeze(dv, -1)
+        #dv_mat: batch (x time) x state dimension x 1
+        Pdv = torch.matmul(dv_mat,torch.transpose(dv_mat,-1,-2))
+        scale=torch.sum(dv**2,dim=-1)
+        scale=torch.unsqueeze(torch.unsqueeze(scale,dim=-1),dim=-1)
+        return Pdv/scale
 
     def compute_f(self, x):
+        """
+        Args:
+            x (tensor): batch x time x state dimension
+        Returns:
+            f(x) (tensor): batch x time x state dimension
+          stable_f:
+            f(x)=f'(x) - dv * scale
+              scale = relu( dv f(x) )/||dv||^2
+          stable_hj:
+            f(x)=f'(x) - dv * scale
+              scale = relu( dv f(x) + k1^2 V_gh  )/||dv||^2
+              V_gh = 
+
+
+        """
         if self.stable_f:
             x_=torch.tensor(x,requires_grad=True)
             v,i_v = self.func_v(x_)
@@ -310,19 +389,75 @@ class SimpleSystem(torch.nn.Module):
         else:
             ## standard
             return self.func_f(x)
-
-    def compute_HJ_hh(self, x, i_v=None):
+    def compute_h(self,x):
+        return self.func_h(x)
+    
+    def compute_h_star(self, x, i_v=None, hx=None):
+        """
+        Args:
+            x (tensor):   batch x time x state dimension
+            i_v (tensor): batch x time
+        Returns:
+            d(h(x),hmu)^2 (tensor): batch x time
+            h_star (tensor): batch x time x observation dimension
+        """
         if i_v is None:
             _,i_v = self.func_v(x)
+        if hx is None:
+            hx = self.compute_h(x)
         ##
         mu_list=self.func_v.get_stable()
         hj_hh_list=[]
-        h = self.func_h(x)
+        hj_hh_pt_list=[]
+        ## hh_pt: 
         for mu_type, mu in mu_list:
             if mu_type=="point":
-                hh= 1 / 2.0 * self._distance(h,mu)
+                hh,hh_pt= self._distance(hx,mu, with_nearest_point=False)
             elif mu_type=="limit_cycle":
-                hh= 1 / 2.0 * self._unit_limit_cycle_distance(h)
+                hh,hh_pt= self._unit_limit_cycle_distance(hx, with_nearest_point=False)
+            else:
+                print("[ERROR] unknown:",mu_type)
+            hj_hh_list.append(hh)
+            hj_hh_pt_list.append(hh_pt)
+        #
+        if len(mu_list)==2:
+            hj_hh=torch.where(i_v==1, hj_hh_list[1],hj_hh_list[0])
+            h_star=torch.where(i_v==1, hj_hh_pt_list[1],hj_hh_pt_list[0])
+        elif len(mu_list)==1:
+            hj_hh=hj_hh_list[0]
+            h_star=hj_hh_pt_list[0]
+        elif len(mu_list)>2:
+            hj_hh=hj_hh_list[0]
+            h_star=hj_hh_pt_list[0]
+            for i in range(len(mu_list)-1):
+                hj_hh=torch.where(i_v==i+1, hj_hh_list[i+1],hj_hh)
+                h_star=torch.where(i_v==i+1, hj_hh_pt_list[i+1],h_star)
+        ##
+        return hj_hh, h_star
+
+
+
+    def distance_h(self, x, i_v=None, hx=None):
+        """
+        Args:
+            x (tensor):   batch x time x state dimension
+            i_v (tensor): batch x time
+        Returns:
+            d(h(x),hmu)^2 (tensor): batch x time
+        """
+        if i_v is None:
+            _,i_v = self.func_v(x)
+        if hx is None:
+            hx = self.compute_h(x)
+        # hh (tensor): batch x time
+        # nearest_points (tensor): batch x time x state_dim
+        mu_list=self.func_v.get_stable()
+        hj_hh_list=[]
+        for mu_type, mu in mu_list:
+            if mu_type=="point":
+                hh= self._distance(hx,mu)
+            elif mu_type=="limit_cycle":
+                hh= self._unit_limit_cycle_distance(hx)
             else:
                 print("[ERROR] unknown:",mu_type)
             hj_hh_list.append(hh)
@@ -351,10 +486,12 @@ class SimpleSystem(torch.nn.Module):
         else:
             gamma = self.gamma
         
-        hj_hh = self.compute_HJ_hh(x, i_v)
-
+        hj_hh = 1 / 2.0 * self.distance_h(x, i_v)
+        
         g = self.func_g_mat(x)
         dv = torch.unsqueeze(dv, -1)
+        #dv: batch (x time) x state dimension x 1
+        #g:  batch (x time) x input dimension x state dimension 
         gdv = torch.matmul(g, dv)
         gdv2 = torch.sum(gdv ** 2, dim=(-1, -2))
         hj_gg = 1 / (2.0 * gamma ** 2) * gdv2
@@ -396,7 +533,7 @@ class SimpleSystem(torch.nn.Module):
                 next_state=self.simulate_one_step(current_state, None)
             else:
                 next_state=self.simulate_one_step(current_state, input_[:, t, :])
-            o = self.func_h(current_state)
+            o = self.compute_h(current_state)
             ## saving time-point data
             obs_generated.append(o)
             state.append(current_state)
@@ -422,6 +559,7 @@ class SimpleSystem(torch.nn.Module):
         if type(self.init_state_mode) is str:
             if   self.init_state_mode=="true_state":
                 init_state =torch.zeros((batch_size, self.state_dim),device=self.device)
+                # mu: n_sample x 2
                 init_state[:,:state.shape[2]] =state[:,0,:]
             elif self.init_state_mode=="random_state":
                 init_state =torch.randn(*(batch_size, self.state_dim),device=self.device)
@@ -438,6 +576,14 @@ class SimpleSystem(torch.nn.Module):
         return state_generated, obs_generated
 
     def forward_state_sampling(self,n,m,scale):
+        """
+        Args:
+            n (int): batch
+            m (int): time
+            scale (float): scale
+        Returns:
+            x (tensor): n*|mu_list| x m x state dimension
+        """
         mu_list=self.func_v.get_stable()
         if len(mu_list)>0:
             ret=[]
@@ -537,7 +683,7 @@ class SimpleSystem(torch.nn.Module):
         else:
             loss=self.forward_loss(obs, input_, state_generated, obs_generated, state, epoch=epoch, step_wise_loss=step_wise_loss)
         if with_generated:
-            hh=self.compute_HJ_hh(state_generated)
+            hh=1 / 2.0 * self.distance_h(state_generated)
             return loss, state_generated, obs_generated, hh
         else:
             return loss
