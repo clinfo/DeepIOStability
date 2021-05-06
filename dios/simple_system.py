@@ -190,10 +190,11 @@ class SimpleSystem(torch.nn.Module):
         hidden_layer_f=None,
         hidden_layer_g=None,
         diag_g=True,
-        stable_f=True,
+        stable_type="fgh",# none/f/fg/fgh
         scale=0.1,
         v_type="single",
         init_gamma=5,
+        schedule_pretrain_epoch=3,
         device=None,
     ):
         super(SimpleSystem, self).__init__()
@@ -204,6 +205,7 @@ class SimpleSystem(torch.nn.Module):
         self.init_state_mode=init_state_mode
         self.alpha={"recons":1.0,"HJ":1.0,"gamma":1.0,"state":1.0,"HJ_dvf":1.0,"HJ_hh":1.0,"HJ_gg":1.0,}
         self.alpha.update(alpha)
+        self.schedule_alpha=alpha
         self.diag_g=diag_g
         self.device=device
 
@@ -231,7 +233,9 @@ class SimpleSystem(torch.nn.Module):
 
         self._input_state_eye = torch.eye(self.input_dim, self.state_dim,device=device)
         self.param_gamma = nn.Parameter(torch.randn(1)[0]+init_gamma)
-        self.stable_f=stable_f
+        self.stable_type=stable_type
+        self.schedule_stable_type=stable_type
+        self.schedule_pretrain_epoch=schedule_pretrain_epoch
 
     def func_g_mat(self, x):
         """
@@ -360,35 +364,82 @@ class SimpleSystem(torch.nn.Module):
         scale=torch.unsqueeze(torch.unsqueeze(scale,dim=-1),dim=-1)
         return Pdv/scale
 
+    def compute_scale_fgh(self, x):
+        x_=torch.tensor(x,requires_grad=True)
+        v,i_v = self.func_v(x_)
+        # v is independet w.r.t. batch and time
+        dv = torch.autograd.grad(v.sum(), x_, create_graph=True)[0].detach()
+        hj_dvf = torch.sum(dv * self.func_f(x_), dim=-1)
+        ## gamma
+        if self.gamma is None:
+            gamma = (1.0e-4+F.relu(self.param_gamma))
+        else:
+            gamma = self.gamma
+        ## hh
+        hj_hh = 1 / 2.0 * self.distance_h(x, i_v)
+        ## gg
+        gx = self.func_g_mat(x)
+        gdv2 = self.compute_GdV(dv, gx)
+        hj_gg = 1 / (2.0 * gamma ** 2) * gdv2
+        v_gh = hj_gg+hj_hh
+        return hj_dvf, v_gh, dv
+
     def compute_f(self, x):
         """
         Args:
             x (tensor): batch x time x state dimension
         Returns:
             f(x) (tensor): batch x time x state dimension
-          stable_f:
+          stable_type = f:
             f(x)=f'(x) - dv * scale
               scale = relu( dv f(x) )/||dv||^2
-          stable_hj:
+          stable_tye  = fgh:
             f(x)=f'(x) - dv * scale
               scale = relu( dv f(x) + k1^2 V_gh  )/||dv||^2
-              V_gh = 
+              V_gh = 1/(2gamma^2)|| gdv ||^2 + 1/2 d(h,h(D))
 
 
         """
-        if self.stable_f:
+        if self.stable_type=="f":
             x_=torch.tensor(x,requires_grad=True)
             v,i_v = self.func_v(x_)
             # v is independet w.r.t. batch and time
-            dv = torch.autograd.grad(v.sum(), x_, create_graph=True)[0]
+            dv = torch.autograd.grad(v.sum(), x_, create_graph=True)[0].detach()
             hj_dvf = torch.sum(dv * self.func_f(x_), dim=-1)
             dv_det = torch.sum(dv **2, dim=-1)
             scale=F.relu(hj_dvf)/dv_det
-            f_new= self.func_f(x) - dv * scale.unsqueeze(-1)
+            proj= dv * scale.unsqueeze(-1)
+            f_new= self.func_f(x) - proj.detach()
+            return f_new
+        elif self.stable_type=="fgh":
+            hj_dvf, v_gh, dv = self.compute_scale_fgh(x)
+            dv_det = torch.sum(dv **2, dim=-1)
+            scale = F.relu(hj_dvf+1/2.0*v_gh)/dv_det
+            proj = dv * scale.unsqueeze(-1)
+            f_new= self.func_f(x) - proj.detach()
             return f_new
         else:
             ## standard
             return self.func_f(x)
+    def compute_g(self,x):
+        if self.stable_type=="fgh":
+            g = self.func_g_mat(x)
+            hj_dvf, v_gh, dv = self.compute_scale_fgh(x)
+            #Pdv (tensor): batch (x time) x state dimension x state dimension 
+            pdv = self.compute_Pdv(dv)
+            scale = torch.sqrt(torch.clip(-hj_dvf/v_gh,1/2,1))
+            scale=scale.unsqueeze(-1).unsqueeze(-1)
+            proj = (1-scale)*torch.matmul(g,pdv)
+            #print("hj_dvf:",hj_dvf.shape)
+            #print("v_gh:",v_gh.shape)
+            #print("g:",g.shape)
+            #print("pdv:",pdv.shape)
+            #print("scale:",scale.shape)
+            #print("proj:",proj.shape)
+            g_new = g - proj.detach()
+            return g_new
+        else:
+            return self.func_g_mat(x)
     def compute_h(self,x):
         return self.func_h(x)
     
@@ -473,29 +524,46 @@ class SimpleSystem(torch.nn.Module):
         ##
         return hj_hh
 
+    def compute_GdV(self, dv, gx):
+        """
+        Args:
+            x (tensor): batch (x time) x state dimension
+            g(x) (tensor): batch  (x time) x input dimension x state dimension
+            dv (tensor): batch (x timev) x state dimension
+        Returns:
+            gdv2 (tensor): batch (x timev)  ||G dV||^2
+        """
+        #gx = self.func_g_mat(x)
+        dv = torch.unsqueeze(dv, -1)
+        #dv: batch (x time) x state dimension x 1
+        #gx: batch (x time) x input dimension x state dimension 
+        gdv = torch.matmul(gx, dv)
+        gdv2 = torch.sum(gdv ** 2, dim=(-1, -2))
+        return gdv2
+
+
     def compute_HJ(self, x):
         """
         x: batch x time x state dimension
         """
+        ## dvf
         v,i_v = self.func_v(x)
         # v is independet w.r.t. batch and time
-        dv = torch.autograd.grad(v.sum(), x, create_graph=True)[0]
+        dv = torch.autograd.grad(v.sum(), x, create_graph=True)[0].detach()
         hj_dvf = torch.sum(dv * self.compute_f(x), dim=-1)
+        ## gamma
         if self.gamma is None:
             gamma = (1.0e-4+F.relu(self.param_gamma))
         else:
             gamma = self.gamma
-        
+        ## hh
         hj_hh = 1 / 2.0 * self.distance_h(x, i_v)
-        
-        g = self.func_g_mat(x)
-        dv = torch.unsqueeze(dv, -1)
-        #dv: batch (x time) x state dimension x 1
-        #g:  batch (x time) x input dimension x state dimension 
-        gdv = torch.matmul(g, dv)
-        gdv2 = torch.sum(gdv ** 2, dim=(-1, -2))
+        ## gg
+        gx = self.compute_g(x)
+        gdv2 = self.compute_GdV(dv, gx)
         hj_gg = 1 / (2.0 * gamma ** 2) * gdv2
 
+        ## loss
         loss_hj = hj_dvf+ hj_hh + hj_gg
         if self.hj_loss_type=="const":
             loss_hj = F.relu(loss_hj + self.c)
@@ -504,6 +572,13 @@ class SimpleSystem(torch.nn.Module):
         return loss_hj, [hj_dvf, hj_hh, hj_gg]
 
     def vecmat_mul(self, vec, mat):
+        """
+        Args:
+            vec: (...) x dim1
+            mat: (...) x dim1 x dim2
+        Returns:
+            output: (...) x dim2
+        """
         vec_m = torch.unsqueeze(vec, -2)
         o = torch.matmul(vec_m, mat)
         o = torch.squeeze(o, -2)
@@ -512,7 +587,7 @@ class SimpleSystem(torch.nn.Module):
     def simulate_one_step(self, current_state, input_=None):
         if input_ is not None:
             ###
-            g = self.func_g_mat(current_state)
+            g = self.compute_g(current_state)
             u = input_[:, :]
             ug = self.vecmat_mul(u, g)
             ###
@@ -603,6 +678,13 @@ class SimpleSystem(torch.nn.Module):
             with_state_loss=False,
             step_wise_loss=False,
             epoch=None):
+
+        if epoch is not None and epoch < self.schedule_pretrain_epoch:
+            self.stable_type="none"
+            self.alpha={"recons":1.0,"HJ":0.0,"gamma":0.0,"state":0.0}
+        else:
+            self.stable_type=self.schedule_stable_type
+            self.alpha=self.schedule_alpha
         ###
         ### observation loss
         ###
@@ -629,7 +711,7 @@ class SimpleSystem(torch.nn.Module):
         ###
         ### summation loss & scheduling
         ###
-        if epoch is not None and epoch<3:
+        if epoch is not None and epoch<0:
             loss = {
                 "recons": self.alpha["recons"]*loss_sum_recons,
                 "*recons": loss_sum_recons,

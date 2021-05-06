@@ -203,6 +203,7 @@ class DiosSSM:
                 loss, loss_dict = self._compute_batch_loss(batch,epoch)
                 train_loss_logger.update(loss, loss_dict)
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.system_model.parameters(), 1.0e-1)
                 optimizer.step()
                 del loss
                 del loss_dict
@@ -218,9 +219,19 @@ class DiosSSM:
             l=valid_loss_logger.get_loss()
             if np.isnan(l):
                 self.logger.info("... nan is detected in training")
+                msg="\t".join(["[{:4d}] ".format(epoch + 1),
+                    train_loss_logger.get_msg("train"),
+                    valid_loss_logger.get_msg("valid"),
+                    "({:2d})".format(patient_count),])
+                self.logger.info(msg)
                 return train_loss_logger, valid_loss_logger, False
             elif epoch >20 and l>1.0e15:
                 self.logger.info("... loss is too learge")
+                msg="\t".join(["[{:4d}] ".format(epoch + 1),
+                    train_loss_logger.get_msg("train"),
+                    valid_loss_logger.get_msg("valid"),
+                    "({:2d})".format(patient_count),])
+                self.logger.info(msg)
                 return train_loss_logger, valid_loss_logger, False
             if prev_valid_loss is None or l < prev_valid_loss:
                 patient_count=0
