@@ -1,45 +1,91 @@
 do_experiment () {
         ex_name=$1
-        echo "...start ${ex_name}"
+        num=$2
+
+        pre=`printf "%06d" ${num}`
+        echo "...start ${ex_name} ${pre}"
 
         cd ${ex_name}
+        train_num=`python -c "print(int(0.9*${num}))"`
 
         #dios-dataset ${ex_name} --prefix 001 --num 100 --train_num 90 &
-        #dios-dataset ${ex_name} --prefix 010 --num 1000 --train_num 900 &
-        dios-dataset ${ex_name} --prefix 100 --num 10000 --train_num 9000 &
+        dios-dataset ${ex_name} --prefix ${pre} --num ${num} --train_num ${train_num} &
         wait
         mkdir -p config
 
         ###### 100
-        pre=100
-        dios-config --config config.json --save_config config/${pre}config.json \
-                --result_path ${pre}result/ \
+        
+        dios-config --config config.json \
+                --save_config config/${pre}config_fgh_loss.json \
+                --result_path ${pre}result_fgh_loss/ \
                 --data_train dataset/${pre}${ex_name}.train \
-                --data_test  dataset/${pre}${ex_name}.test
+                --data_test  dataset/${pre}${ex_name}.test \
+                --stable_type fgh \
+                --alpha_HJ 1.0 \
+                --alpha_gamma 1.0 \
+                --alpha_state 0.0
+        
+        dios-config --config config.json \
+                --save_config config/${pre}config_loss.json \
+                --result_path ${pre}result_loss/ \
+                --data_train dataset/${pre}${ex_name}.train \
+                --data_test  dataset/${pre}${ex_name}.test \
+                --stable_type none \
+                --alpha_HJ 1.0 \
+                --alpha_gamma 1.0 \
+                --alpha_state 0.0
 
-        dios-config --config config/${pre}config.json --save_config config/${pre}config_stable.json \
-                --result_path ${pre}result_stable/ \
+        dios-config --config config.json \
+                --save_config config/${pre}config_fgh.json \
+                --result_path ${pre}result_fgh/ \
+                --data_train dataset/${pre}${ex_name}.train \
+                --data_test  dataset/${pre}${ex_name}.test \
+                --stable_type fgh \
+                --alpha_HJ 0.0 \
+                --alpha_gamma 0.0 \
+                --alpha_state 0.0
+       
+        dios-config --config config.json \
+                --save_config config/${pre}config_f.json \
+                --result_path ${pre}result_f/ \
+                --data_train dataset/${pre}${ex_name}.train \
+                --data_test  dataset/${pre}${ex_name}.test \
+                --stable_type f \
                 --alpha_HJ 0.0 \
                 --alpha_gamma 0.0 \
                 --alpha_state 0.0
         
-        dios-config --config config/${pre}config.json --save_config config/${pre}config_base.json \
-                --result_path ${pre}result_base/ \
-                --stable_f false \
+        dios-config --config config.json \
+                --save_config config/${pre}config_vanilla.json \
+                --result_path ${pre}result_vanilla/ \
+                --data_train dataset/${pre}${ex_name}.train \
+                --data_test  dataset/${pre}${ex_name}.test \
+                --stable_type none \
                 --alpha_HJ 0.0 \
                 --alpha_gamma 0.0 \
                 --alpha_state 0.0
+        
+        dios-config --config config.json \
+                --save_config config/${pre}config_linear.json \
+                --result_path ${pre}result_linear/ \
+                --data_train dataset/${pre}${ex_name}.train \
+                --data_test  dataset/${pre}${ex_name}.test
 
 
-        dios train,test --config config/${pre}config_base.json --gpu 0 &
-        dios train,test --config config/${pre}config_stable.json --gpu 1 &
-        dios train,test --config config/${pre}config.json      --gpu 2 &
-        wait
-        dios-plot --config config/${pre}config.json
-        dios-plot --config config/${pre}config_base.json
-        dios-plot --config config/${pre}config_stable.json
+        #dios train,test --config config/${pre}config_fgh_loss.json --gpu 0 &
+        #dios train,test --config config/${pre}config_loss.json      --gpu 1 &
+        #dios train,test --config config/${pre}config_fgh.json       --gpu 2 &
+        #wait
+        #dios train,test --config config/${pre}config_f.json         --gpu 0 &
+        #dios train,test --config config/${pre}config_vanilla.json   --gpu 1 &
+        #wait
+        dios-plot --config config/${pre}config_fgh_loss.json
+        dios-plot --config config/${pre}config_fgh.json
+        dios-plot --config config/${pre}config_loss.json
+        dios-plot --config config/${pre}config_f.json
+        dios-plot --config config/${pre}config_vanilla.json
 
-        config=config/${pre}config.json
+        config=config/${pre}config_linear.json
         methods="MOESP MOESP_auto ORT ORT_auto ARX ARX_auto PWARX PWARX_auto"
         for m in $methods; do
         dios-linear train,test --config ${config} --method ${m} &
@@ -47,16 +93,16 @@ do_experiment () {
         wait
 
         ####### eval
-        dios-eval ./*result/log*test*.txt ./*result_base/*test*.txt
+        dios-eval ./*result_*/*test*.txt
         cd ..
 
 }
 
 
-do_experiment bistable
-do_experiment glucose
-do_experiment glucose_insulin
-do_experiment limit_cycle
-do_experiment linear
-do_experiment nagumo
+do_experiment bistable 100
+do_experiment glucose 100
+do_experiment glucose_insulin 100
+do_experiment limit_cycle 100 
+do_experiment linear 100
+do_experiment nagumo 100
 
