@@ -3,7 +3,7 @@ import glob
 import os
 from numba import jit
 import json
-from dios.data.util import minmax_normalize, save_dataset
+from dios.data.util import minmax_normalize, z_normalize, save_dataset
 
 
 @jit
@@ -46,7 +46,7 @@ def generate(N):
 
 def generate_dataset(N = 10000,M = 9000,name = "limit_cycle", path="dataset"):
     x_data, u_data, y_data, ys_data = generate(N)
-    x_data, u_data, y_data, ys_data = minmax_normalize(x_data,u_data,y_data, ys_data, path=path, name=name)
+    x_data, u_data, y_data, ys_data = z_normalize(x_data,u_data,y_data, ys_data, path=path, name=name)
     save_dataset(x_data, u_data, y_data, ys_data, M=M, path=path, name=name)
 
 

@@ -3,7 +3,7 @@ import glob
 import os
 from numba import jit
 import json
-from dios.data.util import minmax_normalize, save_dataset
+from dios.data.util import minmax_normalize, z_normalize, save_dataset
 
 
 @jit
@@ -59,7 +59,7 @@ def generate(N=20000):
 
 def generate_dataset(N = 20000,M = 18000,name = "bistable", path="dataset"):
     x_data, u_data, y_data, ys_data = generate(N)
-    x_data, u_data, y_data, ys_data = minmax_normalize(x_data, u_data, y_data, ys_data, path=path, name=name)
+    x_data, u_data, y_data, ys_data = z_normalize(x_data, u_data, y_data, ys_data, path=path, name=name)
     save_dataset(x_data, u_data, y_data, ys_data, M=M, path=path, name=name)
 
 

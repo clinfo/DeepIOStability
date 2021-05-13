@@ -5,6 +5,30 @@ from numba import jit
 from dios.dios import NumPyArangeEncoder
 import json
 
+def z_normalize(x_data,u_data,y_data,ys_data, path="dataset", name="none"):
+    x_m=np.mean(x_data[:,:,:],axis=(0,1))
+    y_m=np.mean(y_data[:,:,:],axis=(0,1))
+    u_m=np.mean(u_data[:,:,:],axis=(0,1))
+    x_std=np.std(x_data[:,:,:],axis=(0,1))
+    y_std=np.std(y_data[:,:,:],axis=(0,1))
+    u_std=np.std(u_data[:,:,:],axis=(0,1))
+    x_data=(x_data-x_m)/x_std
+    y_data=(y_data-y_m)/y_std
+    u_data=(u_data-u_m)/u_std
+    if ys_data is not None:
+        ys_data=(ys_data-y_m)/y_std
+    minmax_data={"name":name,
+            "x_m":x_m,"y_m":y_m,"u_m":u_m,
+            "x_std":x_std,"y_std":y_std,"u_std":u_std,
+            }
+    filename=path+"/z_data.json"
+    os.makedirs(path,exist_ok=True)
+    json.dump(minmax_data,open(filename,"w"),
+            cls=NumPyArangeEncoder)
+    print("[SAVE]",filename)
+    return x_data, u_data, y_data, ys_data
+
+
 def minmax_normalize(x_data,u_data,y_data,ys_data, path="dataset", name="none"):
     x_max=np.max(x_data[:,:,:])
     y_max=np.max(y_data[:,:,:])
