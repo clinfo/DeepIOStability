@@ -321,7 +321,7 @@ class SimpleSystem(torch.nn.Module):
         if self.state_dim>2:
             pad=torch.zeros((n_sample,self.state_dim-2),device=self.device)
             mu=torch.cat([mu,pad],dim=-1)
-        hmu = self.compute_h(mu)
+        hmu = self.func_h(mu)
         # hmu: n_sample x observation dimension
         d_list=[]
         for i in range(n_sample):
@@ -343,7 +343,7 @@ class SimpleSystem(torch.nn.Module):
             squared_distances (tensor): batch x time
             nearest_points (tensor): batch x time x state_dim
         """
-        h_mu = self.compute_h(mu)
+        h_mu = self.func_h(mu)
         d=torch.sum((hx-h_mu)**2, dim=-1)
         if with_nearest_point:
             return d, h_mu
@@ -381,8 +381,7 @@ class SimpleSystem(torch.nn.Module):
         gx = self.func_g_mat(x)
         gdv2 = self.compute_GdV(dv, gx)
         hj_gg = 1 / (2.0 * gamma ** 2) * gdv2
-        v_gh = hj_gg+hj_hh
-        return hj_dvf, v_gh, dv
+        return hj_dvf, hj_gg, hj_hh, dv
 
     def compute_f(self, x):
         """
@@ -412,9 +411,18 @@ class SimpleSystem(torch.nn.Module):
             f_new= self.func_f(x) - proj.detach()
             return f_new
         elif self.stable_type=="fgh":
-            hj_dvf, v_gh, dv = self.compute_scale_fgh(x)
+            hj_dvf, v_g, v_h, dv = self.compute_scale_fgh(x)
+            v_gh = v_g+v_h
             dv_det = torch.sum(dv **2, dim=-1)
             scale = F.relu(hj_dvf+1/2.0*v_gh)/dv_det
+            proj = dv * scale.unsqueeze(-1)
+            f_new= self.func_f(x) - proj.detach()
+            return f_new
+        elif self.stable_type=="fg":
+            hj_dvf, v_g, v_h, dv = self.compute_scale_fgh(x)
+            v_fh = hj_dvf+v_h
+            dv_det = torch.sum(dv **2, dim=-1)
+            scale = F.relu(v_fh+1/2.0*v_g)/dv_det
             proj = dv * scale.unsqueeze(-1)
             f_new= self.func_f(x) - proj.detach()
             return f_new
@@ -424,7 +432,8 @@ class SimpleSystem(torch.nn.Module):
     def compute_g(self,x):
         if self.stable_type=="fgh":
             g = self.func_g_mat(x)
-            hj_dvf, v_gh, dv = self.compute_scale_fgh(x)
+            hj_dvf, v_g, v_h, dv = self.compute_scale_fgh(x)
+            v_gh = v_g+v_h
             #Pdv (tensor): batch (x time) x state dimension x state dimension 
             pdv = self.compute_Pdv(dv)
             scale = torch.sqrt(torch.clip(-hj_dvf/v_gh,1/2,1))
@@ -438,10 +447,27 @@ class SimpleSystem(torch.nn.Module):
             #print("proj:",proj.shape)
             g_new = g - proj.detach()
             return g_new
+        elif self.stable_type=="fg":
+            g = self.func_g_mat(x)
+            hj_dvf, v_g, v_h, dv = self.compute_scale_fgh(x)
+            v_fh = hj_dvf+v_h
+            #Pdv (tensor): batch (x time) x state dimension x state dimension 
+            pdv = self.compute_Pdv(dv)
+            scale = torch.sqrt(torch.clip(-v_fh/v_g,1/2,1))
+            scale=scale.unsqueeze(-1).unsqueeze(-1)
+            proj = (1-scale)*torch.matmul(g,pdv)
+            g_new = g - proj.detach()
+            return g_new
         else:
             return self.func_g_mat(x)
     def compute_h(self,x):
-        return self.func_h(x)
+        if self.stable_type=="fgh":
+            r=0.5
+            _, h_star=self.compute_h_star(x)
+            h_hat=self.func_h(x)
+            return h_star+(1-r)*(h_hat-h_star)
+        else:
+            return self.func_h(x)
     
     def compute_h_star(self, x, i_v=None, hx=None):
         """
@@ -455,7 +481,7 @@ class SimpleSystem(torch.nn.Module):
         if i_v is None:
             _,i_v = self.func_v(x)
         if hx is None:
-            hx = self.compute_h(x)
+            hx = self.func_h(x)
         ##
         mu_list=self.func_v.get_stable()
         hj_hh_list=[]
@@ -463,9 +489,9 @@ class SimpleSystem(torch.nn.Module):
         ## hh_pt: 
         for mu_type, mu in mu_list:
             if mu_type=="point":
-                hh,hh_pt= self._distance(hx,mu, with_nearest_point=False)
+                hh,hh_pt= self._distance(hx,mu, with_nearest_point=True)
             elif mu_type=="limit_cycle":
-                hh,hh_pt= self._unit_limit_cycle_distance(hx, with_nearest_point=False)
+                hh,hh_pt= self._unit_limit_cycle_distance(hx, with_nearest_point=True)
             else:
                 print("[ERROR] unknown:",mu_type)
             hj_hh_list.append(hh)
@@ -499,7 +525,7 @@ class SimpleSystem(torch.nn.Module):
         if i_v is None:
             _,i_v = self.func_v(x)
         if hx is None:
-            hx = self.compute_h(x)
+            hx = self.func_h(x)
         # hh (tensor): batch x time
         # nearest_points (tensor): batch x time x state_dim
         mu_list=self.func_v.get_stable()
