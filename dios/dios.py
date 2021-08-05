@@ -18,6 +18,7 @@ import argparse
 
 import dios
 from dios.data_util import load_data
+from dios.plot_loss import plot_loss, plot_loss_detail
 from dios.model import DiosSSM
 from dios.simple_system import SimpleSystem
 import torch
@@ -67,7 +68,7 @@ def build_config(config):
         config["save_result_train"] = path + "/train.jbl"
         config["simulation_path"] = path + "/sim"
         config["load_model"] = path + "/model/best.checkpoint"
-        config["plot_path"] = path + "/plot"
+        config["plot_path"] = path
         config["log_path"] = path
 
 
@@ -219,6 +220,8 @@ def run_train_mode(config, logger):
 
     joblib.dump(train_loss, config["save_model_path"]+"/train_loss.pkl")
     joblib.dump(valid_loss, config["save_model_path"]+"/valid_loss.pkl")
+    plot_loss(train_loss,valid_loss,config["plot_path"]+"/loss.png")
+    plot_loss_detail(train_loss,valid_loss,config["plot_path"]+"/loss_detail.png")
 
     model.load_ckpt(config["save_model_path"]+"/best.checkpoint")
     loss, states, obs_gen, _ = model.simulate_with_data(valid_data)

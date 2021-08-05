@@ -185,10 +185,14 @@ class DiosSSM:
         validloader = DataLoader(
             validset, batch_size=batch_size, shuffle=False, num_workers=4, timeout=20
         )
+        """
         optimizer = optim.Adam(
             self.system_model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"]
         )
-
+        """
+        optimizer = optim.RMSprop(
+            self.system_model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"]
+        )
         train_loss_logger = LossLogger()
         valid_loss_logger = LossLogger()
         prev_valid_loss=None
@@ -203,7 +207,10 @@ class DiosSSM:
                 loss, loss_dict = self._compute_batch_loss(batch,epoch)
                 train_loss_logger.update(loss, loss_dict)
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.system_model.parameters(), 1.0e-1)
+                # grad clipping by norm
+                torch.nn.utils.clip_grad_norm_(self.system_model.parameters(), max_norm=1.0, norm_type=2)
+                # grad clipping by value
+                #torch.nn.utils.clip_grad_norm_(self.system_model.parameters(), 1.0e-1)
                 optimizer.step()
                 del loss
                 del loss_dict

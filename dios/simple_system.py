@@ -7,7 +7,7 @@ import logging
 import math
 
 class SimpleMLP(torch.nn.Module):
-    def __init__(self, in_dim, h_dim, out_dim, activation=F.relu, scale=0.1, residual=False):
+    def __init__(self, in_dim, h_dim, out_dim, activation=F.leaky_relu, scale=0.1, residual=False):
         super(SimpleMLP, self).__init__()
         linears=[]
         prev_d=in_dim
