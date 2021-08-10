@@ -21,7 +21,7 @@ do_experiment () {
                 --data_train dataset/${pre}${ex_name}.train \
                 --data_test  dataset/${pre}${ex_name}.test \
                 --stable_type fgh \
-                --pretrain_epoch 50 \
+                --pretrain_epoch 0 \
                 --alpha_HJ 1.0 \
                 --alpha_gamma 1.0 \
                 --alpha_state 0.0
@@ -32,7 +32,7 @@ do_experiment () {
                 --data_train dataset/${pre}${ex_name}.train \
                 --data_test  dataset/${pre}${ex_name}.test \
                 --stable_type fg \
-                --pretrain_epoch 50 \
+                --pretrain_epoch 0 \
                 --alpha_HJ 1.0 \
                 --alpha_gamma 1.0 \
                 --alpha_state 0.0
@@ -44,7 +44,7 @@ do_experiment () {
                 --data_train dataset/${pre}${ex_name}.train \
                 --data_test  dataset/${pre}${ex_name}.test \
                 --stable_type none \
-                --pretrain_epoch 50 \
+                --pretrain_epoch 0 \
                 --alpha_HJ 1.0 \
                 --alpha_gamma 1.0 \
                 --alpha_state 0.0
@@ -55,7 +55,7 @@ do_experiment () {
                 --data_train dataset/${pre}${ex_name}.train \
                 --data_test  dataset/${pre}${ex_name}.test \
                 --stable_type fgh \
-                --pretrain_epoch 50 \
+                --pretrain_epoch 0 \
                 --alpha_HJ 0.0 \
                 --alpha_gamma 0.0 \
                 --alpha_state 0.0
@@ -66,7 +66,7 @@ do_experiment () {
                 --data_train dataset/${pre}${ex_name}.train \
                 --data_test  dataset/${pre}${ex_name}.test \
                 --stable_type fg \
-                --pretrain_epoch 50 \
+                --pretrain_epoch 0 \
                 --alpha_HJ 0.0 \
                 --alpha_gamma 0.0 \
                 --alpha_state 0.0
@@ -77,7 +77,7 @@ do_experiment () {
                 --data_train dataset/${pre}${ex_name}.train \
                 --data_test  dataset/${pre}${ex_name}.test \
                 --stable_type f \
-                --pretrain_epoch 50 \
+                --pretrain_epoch 0 \
                 --alpha_HJ 0.0 \
                 --alpha_gamma 0.0 \
                 --alpha_state 0.0
@@ -88,7 +88,7 @@ do_experiment () {
                 --data_train dataset/${pre}${ex_name}.train \
                 --data_test  dataset/${pre}${ex_name}.test \
                 --stable_type none \
-                --pretrain_epoch 50 \
+                --pretrain_epoch 0 \
                 --alpha_HJ 0.0 \
                 --alpha_gamma 0.0 \
                 --alpha_state 0.0
@@ -119,12 +119,12 @@ do_experiment () {
         dios-plot --config config/${pre}config_f.json
         dios-plot --config config/${pre}config_vanilla.json
 
-        config=config/${pre}config_linear.json
-        methods="MOESP MOESP_auto ORT ORT_auto ARX ARX_auto PWARX PWARX_auto"
-        for m in $methods; do
-        dios-linear train,test --config ${config} --method ${m} &
-        done
-        wait
+        #config=config/${pre}config_linear.json
+        #methods="MOESP MOESP_auto ORT ORT_auto ARX ARX_auto PWARX PWARX_auto"
+        #for m in $methods; do
+        #dios-linear train,test --config ${config} --method ${m} &
+        #done
+        #wait
 
         ####### eval
         dios-eval ./*result_*/*test*.txt

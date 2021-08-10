@@ -7,7 +7,7 @@ import logging
 import math
 
 class SimpleMLP(torch.nn.Module):
-    def __init__(self, in_dim, h_dim, out_dim, activation=F.leaky_relu, scale=0.1, residual=False):
+    def __init__(self, in_dim, h_dim, out_dim, activation=F.relu6, scale=0.1, residual=False):
         super(SimpleMLP, self).__init__()
         linears=[]
         prev_d=in_dim
@@ -24,7 +24,8 @@ class SimpleMLP(torch.nn.Module):
 
     def get_layer(self,in_d,out_d):
         l=nn.Linear(in_d, out_d)
-        nn.init.kaiming_uniform_(l.weight)
+        #nn.init.kaiming_uniform_(l.weight)
+        nn.init.kaiming_normal_(l.weight,nonlinearity="relu")
         return l
 
     def forward(self, x):
@@ -405,7 +406,7 @@ class SimpleSystem(torch.nn.Module):
             # v is independet w.r.t. batch and time
             dv = torch.autograd.grad(v.sum(), x_, create_graph=True)[0].detach()
             hj_dvf = torch.sum(dv * self.func_f(x_), dim=-1)
-            dv_det = torch.sum(dv **2, dim=-1)
+            dv_det = torch.sum(dv **2, dim=-1)+1.0e-10
             scale=F.relu(hj_dvf)/dv_det
             proj= dv * scale.unsqueeze(-1)
             f_new= self.func_f(x) - proj.detach()
@@ -413,7 +414,7 @@ class SimpleSystem(torch.nn.Module):
         elif self.stable_type=="fgh":
             hj_dvf, v_g, v_h, dv = self.compute_scale_fgh(x)
             v_gh = v_g+v_h
-            dv_det = torch.sum(dv **2, dim=-1)
+            dv_det = torch.sum(dv **2, dim=-1)+1.0e-10
             scale = F.relu(hj_dvf+1/2.0*v_gh)/dv_det
             proj = dv * scale.unsqueeze(-1)
             f_new= self.func_f(x) - proj.detach()
@@ -421,7 +422,7 @@ class SimpleSystem(torch.nn.Module):
         elif self.stable_type=="fg":
             hj_dvf, v_g, v_h, dv = self.compute_scale_fgh(x)
             v_fh = hj_dvf+v_h
-            dv_det = torch.sum(dv **2, dim=-1)
+            dv_det = torch.sum(dv **2, dim=-1)+1.0e-10
             scale = F.relu(v_fh+1/2.0*v_g)/dv_det
             proj = dv * scale.unsqueeze(-1)
             f_new= self.func_f(x) - proj.detach()
@@ -433,7 +434,7 @@ class SimpleSystem(torch.nn.Module):
         if self.stable_type=="fgh":
             g = self.func_g_mat(x)
             hj_dvf, v_g, v_h, dv = self.compute_scale_fgh(x)
-            v_gh = v_g+v_h
+            v_gh = v_g+v_h+1.0e-10
             #Pdv (tensor): batch (x time) x state dimension x state dimension 
             pdv = self.compute_Pdv(dv)
             scale = torch.sqrt(torch.clip(-hj_dvf/v_gh,1/2,1))
@@ -453,7 +454,7 @@ class SimpleSystem(torch.nn.Module):
             v_fh = hj_dvf+v_h
             #Pdv (tensor): batch (x time) x state dimension x state dimension 
             pdv = self.compute_Pdv(dv)
-            scale = torch.sqrt(torch.clip(-v_fh/v_g,1/2,1))
+            scale = torch.sqrt(torch.clip(-v_fh/(v_g+1.0e-10),1/2,1))
             scale=scale.unsqueeze(-1).unsqueeze(-1)
             proj = (1-scale)*torch.matmul(g,pdv)
             g_new = g - proj.detach()
@@ -764,12 +765,14 @@ class SimpleSystem(torch.nn.Module):
             ### state loss
             ###
             # state regularization
+            """
             if state is not None:
                 state_scale=1
                 loss_state = (state) ** 2/(2*state_scale**2)
                 loss_sum_state = loss_state.sum(dim=(1,2)).mean(dim=0)    
                 loss["state-reg"] = self.alpha["state"] * loss_sum_state
                 loss["*state-reg"] = loss_sum_state
+            """
             # display state error
             if with_state_loss:
                 if state is not None:
@@ -780,7 +783,7 @@ class SimpleSystem(torch.nn.Module):
         
         return loss
 
-    def forward(self, obs, input_, state=None, with_generated=False, epoch=None, step_wise_loss=False):
+    def forward(self, obs, input_, state=None, with_generated=False, epoch=None, step_wise_loss=True):
         state_generated, obs_generated = self.forward_simulate(obs, input_, state)
         if input_ is not None:
             l2_gain=self.forward_l2gain(obs, input_)

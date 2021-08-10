@@ -87,6 +87,15 @@ class DiosSSM:
             input_ = batch["input"]
         if "state" in batch:
             state = batch["state"]
+        ##
+        """
+        obs=obs[:.:10,:]
+        if input_:
+            input_=input_[:.:10,:]
+        if state:
+            state=state[:.:10,:]
+        """
+        ##
         loss_dict = self.system_model(obs, input_, state, epoch=epoch)
         loss = 0
         for k, v in loss_dict.items():
@@ -208,7 +217,7 @@ class DiosSSM:
                 train_loss_logger.update(loss, loss_dict)
                 loss.backward()
                 # grad clipping by norm
-                torch.nn.utils.clip_grad_norm_(self.system_model.parameters(), max_norm=1.0, norm_type=2)
+                torch.nn.utils.clip_grad_norm_(self.system_model.parameters(), max_norm=0.1, norm_type=2)
                 # grad clipping by value
                 #torch.nn.utils.clip_grad_norm_(self.system_model.parameters(), 1.0e-1)
                 optimizer.step()
