@@ -221,6 +221,7 @@ class DiosSSM:
                 # grad clipping by value
                 #torch.nn.utils.clip_grad_norm_(self.system_model.parameters(), 1.0e-1)
                 optimizer.step()
+                print(loss.item())
                 del loss
                 del loss_dict
 

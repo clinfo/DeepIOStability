@@ -7,17 +7,22 @@ import logging
 import math
 
 class SimpleMLP(torch.nn.Module):
-    def __init__(self, in_dim, h_dim, out_dim, activation=F.relu6, scale=0.1, residual=False):
+    def __init__(self, in_dim, h_dim, out_dim, activation=F.relu6, scale=0.1, residual=False, with_bn=False):
         super(SimpleMLP, self).__init__()
         linears=[]
+        bns=[]
+        self.with_bn=with_bn
         prev_d=in_dim
         if h_dim is None:
             h_dim=[]
         for d in h_dim:
             linears.append(self.get_layer(prev_d,d))
+            if with_bn:
+                bns.append(nn.BatchNorm1d(d))
             prev_d=d
         linears.append(self.get_layer(prev_d,out_dim))
         self.linears = nn.ModuleList(linears)
+        self.bns = nn.ModuleList(bns)
         self.activation = activation
         self.scale = scale
         self.residual = residual
@@ -32,12 +37,18 @@ class SimpleMLP(torch.nn.Module):
         if self.residual:
             res_x=x
             for i in range(len(self.linears)-1):
-                x = self.activation(self.linears[i](x))
+                x = self.linears[i](x)
+                if self.with_bn:
+                    x = self.bns[i](x)
+                x = self.activation(x)
             x = self.linears[len(self.linears)-1](x)
             return x*self.scale+res_x
         else:
             for i in range(len(self.linears)-1):
-                x = self.activation(self.linears[i](x))
+                x = self.linears[i](x)
+                if self.with_bn:
+                    x = self.bns[i](x)
+                x = self.activation(x)
             x = self.linears[len(self.linears)-1](x)
             return x*self.scale
 
@@ -166,7 +177,7 @@ class SimpleV4(torch.nn.Module):
             min_index (tensor): batch (x time)
         """
         eps=1.0e-4
-        nx=x/(torch.sqrt(torch.sum(x**2,dim=-1,keepdim=True))+eps)
+        nx=x/(torch.sqrt(torch.sum(x**2,dim=-1,keepdim=True)+eps)+eps)
         d=torch.sum((x-nx)**2,dim=-1)
         min_i=torch.zeros(d.size(),device=self.device)
         return d,min_i
@@ -215,11 +226,11 @@ class SimpleSystem(torch.nn.Module):
         
         self.hj_loss_type=hj_loss_type
 
-        self.func_h = SimpleMLP(state_dim, hidden_layer_h, obs_dim,scale=scale)
-        self.func_h_inv = SimpleMLP(obs_dim, hidden_layer_h, state_dim,scale=scale)
-        self.func_f = SimpleMLP(state_dim, hidden_layer_f, state_dim,scale=scale)
-        self.func_g = SimpleMLP(state_dim, hidden_layer_g, state_dim * input_dim,scale=scale)
-        self.func_g_vec = SimpleMLP(state_dim, hidden_layer_g, input_dim,scale=1.0)
+        self._func_h = SimpleMLP(state_dim, hidden_layer_h, obs_dim,scale=scale, with_bn=False)
+        self._func_h_inv = SimpleMLP(obs_dim, hidden_layer_h, state_dim,scale=scale, with_bn=False)
+        self._func_f = SimpleMLP(state_dim, hidden_layer_f, state_dim,scale=scale)
+        self._func_g = SimpleMLP(state_dim, hidden_layer_g, state_dim * input_dim,scale=scale)
+        self._func_g_vec = SimpleMLP(state_dim, hidden_layer_g, input_dim,scale=1.0)
         if v_type=="single":
             self.func_v = SimpleV1(state_dim,device=device)
         elif v_type=="double":
@@ -227,7 +238,7 @@ class SimpleSystem(torch.nn.Module):
         elif v_type=="many":
             self.func_v = SimpleV3(state_dim,device=device)
         elif v_type=="single_cycle":
-            self.func_h = SimpleMLP(state_dim, hidden_layer_h, obs_dim,scale=scale,residual=True)
+            self._func_h = SimpleMLP(state_dim, hidden_layer_h, obs_dim,scale=scale,residual=True)
             self.func_v = SimpleV4(state_dim,device=device)
         else:
             print("[ERROR] unknown:",v_type)
@@ -237,6 +248,59 @@ class SimpleSystem(torch.nn.Module):
         self.stable_type=stable_type
         self.schedule_stable_type=stable_type
         self.schedule_pretrain_epoch=schedule_pretrain_epoch
+
+        self.max_state_value=10
+        self.max_obs_value=10
+
+    def func_h(self,x):
+        if len(x.shape) == 3:  # batch_size x time x state_dim
+            t=x.shape[1]
+            x=x.reshape((-1, self.state_dim))
+            x=self._func_h(x)
+            x=x.reshape((-1, t, self.obs_dim))
+            return x
+        else:
+            return self._func_h(x)
+
+    def func_h_inv(self,x):
+        if len(x.shape) == 3:  # batch_size x time x obs_dim
+            t=x.shape[1]
+            x=x.reshape((-1, self.obs_dim))
+            x=self._func_h_inv(x)
+            x=x.reshape((-1, t, self.state_dim))
+            return x
+        else:
+            return self._func_h_inv(x)
+
+    def func_f(self,x):
+        if len(x.shape) == 3:  # batch_size x time x state_dim
+            t=x.shape[1]
+            x=x.reshape((-1, self.state_dim))
+            x=self._func_f(x)
+            x=x.reshape((-1, t, self.state_dim))
+            return x
+        else:
+            return self._func_f(x)
+
+    def func_g(self,x):
+        if len(x.shape) == 3:  # batch_size x time x state_dim
+            t=x.shape[1]
+            x=x.reshape((-1, self.state_dim))
+            x=self._func_g(x)
+            x=x.reshape((-1, t, self.state_dim * self.input_dim))
+            return x
+        else:
+            return self._func_g(x)
+
+    def func_g_vec(self,x):
+        if len(x.shape) == 3:  # batch_size x time x state_dim
+            t=x.shape[1]
+            x=x.reshape((-1, self.state_dim))
+            x=self._func_g_vec(x)
+            x=x.reshape((-1, t, self.input_dim))
+            return x
+        else:
+            return self._func_g_vec(x)
 
     def func_g_mat(self, x):
         """
@@ -363,7 +427,7 @@ class SimpleSystem(torch.nn.Module):
         Pdv = torch.matmul(dv_mat,torch.transpose(dv_mat,-1,-2))
         scale=torch.sum(dv**2,dim=-1)
         scale=torch.unsqueeze(torch.unsqueeze(scale,dim=-1),dim=-1)
-        return Pdv/scale
+        return Pdv/(scale+1.0e-10)
 
     def compute_scale_fgh(self, x):
         x_=torch.tensor(x,requires_grad=True)
@@ -381,7 +445,7 @@ class SimpleSystem(torch.nn.Module):
         ## gg
         gx = self.func_g_mat(x)
         gdv2 = self.compute_GdV(dv, gx)
-        hj_gg = 1 / (2.0 * gamma ** 2) * gdv2
+        hj_gg = 1 / (2.0 * gamma ** 2 + 1.0e-10) * gdv2
         return hj_dvf, hj_gg, hj_hh, dv
 
     def compute_f(self, x):
@@ -410,6 +474,7 @@ class SimpleSystem(torch.nn.Module):
             scale=F.relu(hj_dvf)/dv_det
             proj= dv * scale.unsqueeze(-1)
             f_new= self.func_f(x) - proj.detach()
+            f_new = torch.clip(f_new, -self.max_state_value, self.max_state_value)
             return f_new
         elif self.stable_type=="fgh":
             hj_dvf, v_g, v_h, dv = self.compute_scale_fgh(x)
@@ -418,6 +483,7 @@ class SimpleSystem(torch.nn.Module):
             scale = F.relu(hj_dvf+1/2.0*v_gh)/dv_det
             proj = dv * scale.unsqueeze(-1)
             f_new= self.func_f(x) - proj.detach()
+            f_new = torch.clip(f_new, -self.max_state_value, self.max_state_value)
             return f_new
         elif self.stable_type=="fg":
             hj_dvf, v_g, v_h, dv = self.compute_scale_fgh(x)
@@ -426,10 +492,14 @@ class SimpleSystem(torch.nn.Module):
             scale = F.relu(v_fh+1/2.0*v_g)/dv_det
             proj = dv * scale.unsqueeze(-1)
             f_new= self.func_f(x) - proj.detach()
+            f_new = torch.clip(f_new, -self.max_state_value, self.max_state_value)
             return f_new
         else:
             ## standard
-            return self.func_f(x)
+            f_new = self.func_f(x)
+            f_new = torch.clip(f_new, -self.max_state_value, self.max_state_value)
+            return f_new
+
     def compute_g(self,x):
         if self.stable_type=="fgh":
             g = self.func_g_mat(x)
@@ -447,6 +517,7 @@ class SimpleSystem(torch.nn.Module):
             #print("scale:",scale.shape)
             #print("proj:",proj.shape)
             g_new = g - proj.detach()
+            g_new = torch.clip(g_new, -self.max_state_value, self.max_state_value)
             return g_new
         elif self.stable_type=="fg":
             g = self.func_g_mat(x)
@@ -458,17 +529,26 @@ class SimpleSystem(torch.nn.Module):
             scale=scale.unsqueeze(-1).unsqueeze(-1)
             proj = (1-scale)*torch.matmul(g,pdv)
             g_new = g - proj.detach()
+            g_new = torch.clip(g_new, -self.max_state_value, self.max_state_value)
             return g_new
         else:
-            return self.func_g_mat(x)
+            g_new = self.func_g_mat(x)
+            g_new = torch.clip(g_new, -self.max_state_value, self.max_state_value)
+            return g_new
+
     def compute_h(self,x):
         if self.stable_type=="fgh":
             r=0.5
             _, h_star=self.compute_h_star(x)
-            h_hat=self.func_h(x)
-            return h_star+(1-r)*(h_hat-h_star)
+            h_star= h_star.detach()
+            h_hat = self.func_h(x)
+            h_new = h_star+(1-r)*(h_hat-h_star)
+            h_new = torch.clip(h_new, -self.max_obs_value, self.max_obs_value)
+            return h_new
         else:
-            return self.func_h(x)
+            h_new = self.func_h(x)
+            h_new = torch.clip(h_new, -self.max_obs_value, self.max_obs_value)
+            return h_new
     
     def compute_h_star(self, x, i_v=None, hx=None):
         """
@@ -588,7 +668,7 @@ class SimpleSystem(torch.nn.Module):
         ## gg
         gx = self.compute_g(x)
         gdv2 = self.compute_GdV(dv, gx)
-        hj_gg = 1 / (2.0 * gamma ** 2) * gdv2
+        hj_gg = 1 / (2.0 * gamma ** 2 + 1.0e-10) * gdv2
 
         ## loss
         loss_hj = hj_dvf+ hj_hh + hj_gg
@@ -724,7 +804,7 @@ class SimpleSystem(torch.nn.Module):
         ### HJ loss
         ###
         #state_rand =3*torch.randn(state.shape,requires_grad=True,device=self.device)
-        state_rand =self.forward_state_sampling(100,1,scale=1.0)
+        state_rand =self.forward_state_sampling(1000,1,scale=3.0)
         loss_hj, loss_hj_list = self.compute_HJ(state_rand)
         #loss_hj, loss_hj_list = self.compute_HJ(state)
         ##

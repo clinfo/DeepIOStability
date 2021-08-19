@@ -27,23 +27,25 @@ def plot_loss_detail(loss_train,loss_valid,filename="loss_detail.png"):
     ### loss_detail.png
     train_loss_dict={}
     valid_loss_dict={}
-    train_loss_list=[]
+    loss_list=[]
     for i,train_l in enumerate(loss_train.loss_dict_history):
         for key,val in train_l.items():
             if key not in train_loss_dict:
                 train_loss_dict[key]=[]
             v=val.item()
             train_loss_dict[key].append((i,v))
-            train_loss_list.append(v)
+            loss_list.extend(v)
 
     for i,valid_l in enumerate(loss_valid.loss_dict_history):
         for key,val in valid_l.items():
             if key not in valid_loss_dict:
                 valid_loss_dict[key]=[]
-            valid_loss_dict[key].append((i,val.item()))
+            v=val.item()
+            valid_loss_dict[key].append((i,v))
+            loss_list.extend(v)
 
     med_y=np.nanmedian(train_loss_list)
-    min_y=np.nanmin(train_loss_list)
+    min_y=np.nanmin(loss_list)
 
 
     cmap = plt.get_cmap("tab20")

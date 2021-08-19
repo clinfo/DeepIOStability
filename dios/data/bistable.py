@@ -17,7 +17,7 @@ def generate(N=20000):
     times = np.arange(0,T,dh)
 
     # ステップ入力の設定
-
+    """
     u1 = np.zeros((N//2,times.shape[0],1))
     u_step = 4*np.random.rand(N//2)
     tmp =  np.ones((1,times.shape[0])) *u_step.reshape(-1,1)
@@ -35,17 +35,54 @@ def generate(N=20000):
     u_step = 4*np.random.rand(N//2)
     tmp =  np.ones((1,times.shape[0])) *u_step.reshape(-1,1)
     u2 [(times<tmp+5)&(5<=times),:]= 1
-
-
     u=np.concatenate([u1,u2],axis=0)
-    np.random.shuffle(u)
+    """
+    n_steps=times.shape[0]
+    u = np.zeros((N,n_steps,1))
+    for i in range(N):
+        r=np.random.randint(0,4)
+        if r==0:
+            s1=np.random.randint(1,n_steps)
+            s2=np.random.randint(1,n_steps)
+            ss=sorted([s1,s2])
+            u[i,ss[0]:ss[1],0]=1
+        elif r==1:
+            s1=np.random.randint(1,n_steps)
+            s2=np.random.randint(1,n_steps)
+            ss=sorted([s1,s2])
+            u[i,ss[0]:ss[1],0]=-1
+        elif r==2:
+            s1=np.random.randint(1,n_steps)
+            s2=np.random.randint(1,n_steps)
+            s3=np.random.randint(1,n_steps)
+            s4=np.random.randint(1,n_steps)
+            ss=sorted([s1,s2,s3,s4])
+            u[i,ss[0]:ss[1],0]=1
+            u[i,ss[2]:ss[3],0]=-1
+        elif r==3:
+            s1=np.random.randint(1,n_steps)
+            s2=np.random.randint(1,n_steps)
+            s3=np.random.randint(1,n_steps)
+            s4=np.random.randint(1,n_steps)
+            ss=sorted([s1,s2,s3,s4])
+            u[i,ss[0]:ss[1],0]=-1
+            u[i,ss[2]:ss[3],0]=1
+
 
     #  初期値は0
+    """
     x01 = -np.ones(N//2)
     x02 = np.ones(N//2)
     x0 = np.concatenate([x01,x02],axis=0)
     np.random.shuffle(x0)
-
+    """
+    x0 = -np.ones(N)
+    for i in range(N):
+        r=np.random.randint(0,2)
+        if r==0:
+            x0[i]=1
+        elif r==1:
+            x0[i]=-1
     x = np.zeros((N,times.shape[0],1))
 
     x[:,0,0] = x0
