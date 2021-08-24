@@ -7,7 +7,7 @@ import logging
 import math
 
 class SimpleMLP(torch.nn.Module):
-    def __init__(self, in_dim, h_dim, out_dim, activation=F.relu6, scale=0.1, residual=False, with_bn=False):
+    def __init__(self, in_dim, h_dim, out_dim, activation=F.relu6, scale=0.1, residual=False, negative_residual=False, with_bn=False):
         super(SimpleMLP, self).__init__()
         linears=[]
         bns=[]
@@ -26,6 +26,7 @@ class SimpleMLP(torch.nn.Module):
         self.activation = activation
         self.scale = scale
         self.residual = residual
+        self.negative_residual = negative_residual
 
     def get_layer(self,in_d,out_d):
         l=nn.Linear(in_d, out_d)
@@ -34,22 +35,18 @@ class SimpleMLP(torch.nn.Module):
         return l
 
     def forward(self, x):
-        if self.residual:
-            res_x=x
-            for i in range(len(self.linears)-1):
+        res_x=x
+        for i in range(len(self.linears)-1):
                 x = self.linears[i](x)
                 if self.with_bn:
                     x = self.bns[i](x)
                 x = self.activation(x)
             x = self.linears[len(self.linears)-1](x)
+        if self.negative_residual:
+            return x*self.scale-res_x
+        elif self.residual:
             return x*self.scale+res_x
         else:
-            for i in range(len(self.linears)-1):
-                x = self.linears[i](x)
-                if self.with_bn:
-                    x = self.bns[i](x)
-                x = self.activation(x)
-            x = self.linears[len(self.linears)-1](x)
             return x*self.scale
 
 class SimpleV1(torch.nn.Module):

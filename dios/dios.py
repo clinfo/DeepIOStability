@@ -363,9 +363,9 @@ def run_pred_mode(config, logger):
 
     ####
     print("=== stable")
-    st_pts,st_mu=model.system_model.get_stable()
+    st_h_mu,st_mu=model.system_model.get_stable()
     st_errors=[]
-    for pt,mu_pair in zip(st_pts,st_mu):
+    for pt,mu_pair in zip(st_h_mu,st_mu):
         mu_type,mu=mu_pair
         if mu_type=="point":
             mu=mu.to("cpu").detach().numpy().copy()

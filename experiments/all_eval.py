@@ -38,6 +38,7 @@ for filename in filenames:
 ofp = open("all_eval.tsv","w")
 s="\t".join(["name","setting","method_type","method"]+header)
 ofp.write(s)
+print(s)
 ofp.write("\n")
 for arr in sorted(data):
     s="\t".join(arr)
