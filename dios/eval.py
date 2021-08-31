@@ -7,7 +7,7 @@ import json
 
 def parse_log(filenames, output="eval.tsv"):
     data={}
-    items=["mean error", "data io gain", "test io gain", "stable error", "gamma"]
+    items=["mean error", "data io gain1", "test io gain1", "data io gain2", "test io gain2", "stable error", "gamma"]
     for filename in sys.argv[1:]:
         obj={}
         for line in open(filename):

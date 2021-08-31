@@ -34,7 +34,10 @@ def plot_loss_detail(loss_train,loss_valid,filename="loss_detail.png"):
                 train_loss_dict[key]=[]
             v=val.item()
             train_loss_dict[key].append((i,v))
-            loss_list.extend(v)
+            if type(v) is float: 
+                loss_list.append(v)
+            else:
+                loss_list.extend(v)
 
     for i,valid_l in enumerate(loss_valid.loss_dict_history):
         for key,val in valid_l.items():
@@ -42,7 +45,10 @@ def plot_loss_detail(loss_train,loss_valid,filename="loss_detail.png"):
                 valid_loss_dict[key]=[]
             v=val.item()
             valid_loss_dict[key].append((i,v))
-            loss_list.extend(v)
+            if type(v) is float: 
+                loss_list.append(v)
+            else:
+                loss_list.extend(v)
 
     med_y=np.nanmedian(train_loss_list)
     min_y=np.nanmin(loss_list)

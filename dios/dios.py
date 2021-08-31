@@ -338,15 +338,15 @@ def run_pred_mode(config, logger):
         g_gen=gy_gen/gu
         g_data[g_data == np.inf] = np.nan
         g_gen[g_gen == np.inf] = np.nan
-        logger.info("data io gain: {}".format(np.nanmean(g_data)))
-        logger.info("test io gain: {}".format(np.nanmean(g_gen)))
+        logger.info("data io gain1: {}".format(np.nanmean(g_data)))
+        logger.info("test io gain1: {}".format(np.nanmean(g_gen)))
         ##
         ey_data=2*hh
         egy_data=np.sqrt(np.mean(ey_data,axis=1))
         eg_data=egy_data/gu
         eg_data[eg_data == np.inf] = np.nan
         os.makedirs(config["simulation_path"], exist_ok=True)
-        logger.info("estimated test io gain: {}".format(np.nanmean(eg_data)))
+        logger.info("estimated test io gain1: {}".format(np.nanmean(eg_data)))
         #logger.info("estimated test io gain[0]: {}".format((egy_data/gu)[0]))
         gamma=sys.get_gamma().item()
         ##
@@ -425,7 +425,42 @@ def run_pred_mode(config, logger):
         filename=config["simulation_path"]+"/sim_rand.state.npy"
         print("[SAVE]", filename)
         np.save(filename, out_state)
-     
+    ####
+    print("=== modified gain")
+    _,init_state_list=model.system_model.get_stable()
+    init_state=[]
+    for el,st in init_state_list:
+        if el=="point":
+            if st.shape[0]==1:
+                init_state.append([st])
+            else:
+                init_state.append(st)
+    init_state = torch.tensor(init_state,dtype=torch.float32)
+    out_state,out_obs=model.simulate_with_input(None, init_state, step=n_step)
+    stable_y=out_obs[:,-1,:].to("cpu").detach().numpy().copy()
+    y0=init_state.to("cpu").detach().numpy().copy()
+    if all_data.input is not None:
+        for k in range(len(stable_y)):
+            print("stable point:",y0[k,:],"-->",stable_y[k,:])
+            yy_data=np.sum((all_data.obs-stable_y[k,:])**2,axis=2)
+            yy_gen =np.sum((obs_gen     -stable_y[k,:])**2,axis=2)
+            ###
+            gu=np.sum(all_data.input**2,axis=2)
+            ###
+            gy_data=np.sqrt(np.mean(yy_data,axis=1))
+            gy_gen =np.sqrt(np.mean(yy_gen ,axis=1))
+            gu     =np.sqrt(np.mean(gu,axis=1))
+            logger.info("mean(gu): {}".format(np.mean(gu)))
+            logger.info("mean(gy): {}".format(np.mean(gy_data)))
+            logger.info("mean(gy)/mean(gu): {}".format(np.mean(gy_data)))
+            g_data=gy_data/gu
+            g_gen=gy_gen/gu
+            g_data[g_data == np.inf] = np.nan
+            g_gen[g_gen == np.inf] = np.nan
+            logger.info("data io gain2: {}".format(np.nanmean(g_data)))
+            logger.info("test io gain2: {}".format(np.nanmean(g_gen)))
+            ##
+             
 def set_file_logger(logger,config,filename):
     if "log_path" in config:
         filename=config["log_path"]+"/"+filename

@@ -37,11 +37,11 @@ class SimpleMLP(torch.nn.Module):
     def forward(self, x):
         res_x=x
         for i in range(len(self.linears)-1):
-                x = self.linears[i](x)
-                if self.with_bn:
-                    x = self.bns[i](x)
-                x = self.activation(x)
-            x = self.linears[len(self.linears)-1](x)
+            x = self.linears[i](x)
+            if self.with_bn:
+                x = self.bns[i](x)
+            x = self.activation(x)
+        x = self.linears[len(self.linears)-1](x)
         if self.negative_residual:
             return x*self.scale-res_x
         elif self.residual:
@@ -225,7 +225,7 @@ class SimpleSystem(torch.nn.Module):
 
         self._func_h = SimpleMLP(state_dim, hidden_layer_h, obs_dim,scale=scale, with_bn=False)
         self._func_h_inv = SimpleMLP(obs_dim, hidden_layer_h, state_dim,scale=scale, with_bn=False)
-        self._func_f = SimpleMLP(state_dim, hidden_layer_f, state_dim,scale=scale)
+        self._func_f = SimpleMLP(state_dim, hidden_layer_f, state_dim,scale=scale, negative_residual=True)
         self._func_g = SimpleMLP(state_dim, hidden_layer_g, state_dim * input_dim,scale=scale)
         self._func_g_vec = SimpleMLP(state_dim, hidden_layer_g, input_dim,scale=1.0)
         if v_type=="single":
