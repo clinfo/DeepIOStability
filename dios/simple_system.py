@@ -587,6 +587,7 @@ class SimpleSystem(torch.nn.Module):
             for i in range(len(mu_list)-1):
                 hj_hh=torch.where(i_v==i+1, hj_hh_list[i+1],hj_hh)
                 h_star=torch.where(i_v==i+1, hj_hh_pt_list[i+1],h_star)
+        h_star=h_star.reshape(list(i_v.shape)+[self.obs_dim])
         ##
         return hj_hh, h_star
 
