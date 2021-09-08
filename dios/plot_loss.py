@@ -50,7 +50,7 @@ def plot_loss_detail(loss_train,loss_valid,filename="loss_detail.png"):
             else:
                 loss_list.extend(v)
 
-    med_y=np.nanmedian(train_loss_list)
+    med_y=np.nanmedian(loss_list)
     min_y=np.nanmin(loss_list)
 
 

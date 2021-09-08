@@ -133,14 +133,14 @@ do_experiment () {
 }
 
 
-#do_experiment bistable 100
+do_experiment bistable 100
 do_experiment glucose 100
 do_experiment glucose_insulin 100
 do_experiment limit_cycle 100 
 do_experiment linear 100
 do_experiment nagumo 100
 
-#do_experiment bistable 1000
+do_experiment bistable 1000
 do_experiment glucose 1000
 do_experiment glucose_insulin 1000
 do_experiment limit_cycle 1000
@@ -148,9 +148,9 @@ do_experiment linear 1000
 do_experiment nagumo 1000
 
 #do_experiment bistable 10000
-do_experiment glucose 10000
-do_experiment glucose_insulin 10000
-do_experiment limit_cycle 10000
-do_experiment linear 10000
-do_experiment nagumo 10000
+#do_experiment glucose 10000
+#do_experiment glucose_insulin 10000
+#do_experiment limit_cycle 10000
+#do_experiment linear 10000
+#do_experiment nagumo 10000
 
