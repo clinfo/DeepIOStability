@@ -432,16 +432,20 @@ def run_pred_mode(config, logger):
     for el,st in init_state_list:
         if el=="point":
             if st.shape[0]==1:
-                init_state.append([st])
+                init_state.append([st.item()])
             else:
-                init_state.append(st)
+                init_state.append(st.to("cpu").detach().numpy().copy())
+    print(init_state)
+    init_state = np.array(init_state)
     init_state = torch.tensor(init_state,dtype=torch.float32)
     out_state,out_obs=model.simulate_with_input(None, init_state, step=n_step)
     stable_y=out_obs[:,-1,:].to("cpu").detach().numpy().copy()
-    y0=init_state.to("cpu").detach().numpy().copy()
+    stable_x=out_state[:,-1,:].to("cpu").detach().numpy().copy()
+    x0=init_state.to("cpu").detach().numpy().copy()
     if all_data.input is not None:
         for k in range(len(stable_y)):
-            print("stable point:",y0[k,:],"-->",stable_y[k,:])
+            print("stable point:",x0[k,:],"-->",stable_x[k,:])
+            print("stable point(obs):",stable_y[k,:])
             yy_data=np.sum((all_data.obs-stable_y[k,:])**2,axis=2)
             yy_gen =np.sum((obs_gen     -stable_y[k,:])**2,axis=2)
             ###
