@@ -470,7 +470,7 @@ class SimpleSystem(torch.nn.Module):
             dv_det = torch.sum(dv **2, dim=-1)+1.0e-10
             scale=F.relu(hj_dvf)/dv_det
             proj= dv * scale.unsqueeze(-1)
-            f_new= self.func_f(x) - proj.detach()
+            f_new= self.func_f(x) - proj#.detach()
             f_new = torch.clip(f_new, -self.max_state_value, self.max_state_value)
             return f_new
         elif self.stable_type=="fgh":
@@ -479,7 +479,7 @@ class SimpleSystem(torch.nn.Module):
             dv_det = torch.sum(dv **2, dim=-1)+1.0e-10
             scale = F.relu(hj_dvf+1/2.0*v_gh)/dv_det
             proj = dv * scale.unsqueeze(-1)
-            f_new= self.func_f(x) - proj.detach()
+            f_new= self.func_f(x) - proj#.detach()
             f_new = torch.clip(f_new, -self.max_state_value, self.max_state_value)
             return f_new
         elif self.stable_type=="fg":
@@ -488,7 +488,7 @@ class SimpleSystem(torch.nn.Module):
             dv_det = torch.sum(dv **2, dim=-1)+1.0e-10
             scale = F.relu(v_fh+1/2.0*v_g)/dv_det
             proj = dv * scale.unsqueeze(-1)
-            f_new= self.func_f(x) - proj.detach()
+            f_new= self.func_f(x) - proj#.detach()
             f_new = torch.clip(f_new, -self.max_state_value, self.max_state_value)
             return f_new
         else:
@@ -513,7 +513,7 @@ class SimpleSystem(torch.nn.Module):
             #print("pdv:",pdv.shape)
             #print("scale:",scale.shape)
             #print("proj:",proj.shape)
-            g_new = g - proj.detach()
+            g_new = g - proj#.detach()
             g_new = torch.clip(g_new, -self.max_state_value, self.max_state_value)
             return g_new
         elif self.stable_type=="fg":
@@ -525,7 +525,7 @@ class SimpleSystem(torch.nn.Module):
             scale = torch.sqrt(torch.clip(-v_fh/(v_g+1.0e-10),1/2,1))
             scale=scale.unsqueeze(-1).unsqueeze(-1)
             proj = (1-scale)*torch.matmul(g,pdv)
-            g_new = g - proj.detach()
+            g_new = g - proj#.detach()
             g_new = torch.clip(g_new, -self.max_state_value, self.max_state_value)
             return g_new
         else:
