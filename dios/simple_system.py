@@ -582,8 +582,12 @@ class SimpleSystem(torch.nn.Module):
         elif len(mu_list)==1:
             hj_hh=hj_hh_list[0]
             h_star=hj_hh_pt_list[0]
-            i_shape=[1 for _ in range(len(i_v.shape))]+[self.obs_dim]
-            o_shape=list(i_v.shape)+[1]
+            if mu_type=="limit_cycle":
+                i_shape=[s for s in i_v.shape]+[self.obs_dim]
+                o_shape=[1 for _ in i_v.shape]+[1]
+            else:
+                i_shape=[1 for _ in i_v.shape]+[self.obs_dim]
+                o_shape=list(i_v.shape)+[1]
             h_star=h_star.reshape(i_shape)
             h_star=torch.tile(h_star,o_shape)
         elif len(mu_list)>2:
