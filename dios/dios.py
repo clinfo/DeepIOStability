@@ -119,6 +119,10 @@ def get_default_config():
     config["hidden_layer_f"] = [32]
     config["hidden_layer_g"] = [32]
     config["hidden_layer_h"] = [32]
+    config["system_f_residual"]=True
+    config["system_f_residual_coeff"]=-1.0
+    config["system_g_offset"]=0
+    config["system_g_positive"]=False
     """
     config["alpha"] = 1.0
     config["beta"] = 1.0
@@ -208,6 +212,10 @@ def run_train_mode(config, logger):
                 hj_loss_type=config["hj_loss_type"],
                 diag_g=config["diag_g"],
                 scale=config["system_scale"],
+                system_f_residual=config["system_f_residual"],
+                system_f_residual_coeff=config["system_f_residual_coeff"],
+                system_g_offset=config["system_g_offset"],
+                system_g_positive=config["system_g_positive"],
                 v_type=config["v_type"],
                 stable_type=config["stable_type"],
                 schedule_pretrain_epoch=config["pretrain_epoch"],
@@ -293,6 +301,10 @@ def run_pred_mode(config, logger):
             hj_loss_type=config["hj_loss_type"],
             diag_g=config["diag_g"],
             scale=config["system_scale"],
+            system_f_residual=config["system_f_residual"],
+            system_f_residual_coeff=config["system_f_residual_coeff"],
+            system_g_offset=config["system_g_offset"],
+            system_g_positive=config["system_g_positive"],
             v_type=config["v_type"],
             stable_type=config["stable_type"],
             schedule_pretrain_epoch=config["pretrain_epoch"],
@@ -426,7 +438,7 @@ def run_pred_mode(config, logger):
         print("[SAVE]", filename)
         np.save(filename, out_state)
     ####
-    print("=== modified gain")
+    print("=== modified gain (point)")
     _,init_state_list=model.system_model.get_stable()
     init_state=[]
     for el,st in init_state_list:
@@ -435,20 +447,65 @@ def run_pred_mode(config, logger):
                 init_state.append([st.item()])
             else:
                 init_state.append(st.to("cpu").detach().numpy().copy())
-    print(init_state)
-    init_state = np.array(init_state)
-    init_state = torch.tensor(init_state,dtype=torch.float32)
-    out_state,out_obs=model.simulate_with_input(None, init_state, step=n_step)
-    stable_y=out_obs[:,-1,:].to("cpu").detach().numpy().copy()
-    stable_x=out_state[:,-1,:].to("cpu").detach().numpy().copy()
-    x0=init_state.to("cpu").detach().numpy().copy()
-    if all_data.input is not None:
-        for k in range(len(stable_y)):
-            print("stable point:",x0[k,:],"-->",stable_x[k,:])
-            print("stable point(obs):",stable_y[k,:])
-            yy_data=np.sum((all_data.obs-stable_y[k,:])**2,axis=2)
-            yy_gen =np.sum((obs_gen     -stable_y[k,:])**2,axis=2)
-            ###
+    if len(init_state)>0:
+        print(init_state)
+        init_state = np.array(init_state)
+        init_state = torch.tensor(init_state,dtype=torch.float32)
+        out_state,out_obs=model.simulate_with_input(None, init_state, step=n_step)
+        stable_y=out_obs[:,-1,:].to("cpu").detach().numpy().copy()
+        stable_x=out_state[:,-1,:].to("cpu").detach().numpy().copy()
+        x0=init_state.to("cpu").detach().numpy().copy()
+        if all_data.input is not None:
+            for k in range(len(stable_y)):
+                print("stable point:",x0[k,:],"-->",stable_x[k,:])
+                print("stable point(obs):",stable_y[k,:])
+                yy_data=np.sum((all_data.obs-stable_y[k,:])**2,axis=2)
+                yy_gen =np.sum((obs_gen     -stable_y[k,:])**2,axis=2)
+                ###
+                gu=np.sum(all_data.input**2,axis=2)
+                ###
+                gy_data=np.sqrt(np.mean(yy_data,axis=1))
+                gy_gen =np.sqrt(np.mean(yy_gen ,axis=1))
+                gu     =np.sqrt(np.mean(gu,axis=1))
+                logger.info("mean(gu): {}".format(np.mean(gu)))
+                logger.info("mean(gy): {}".format(np.mean(gy_data)))
+                logger.info("mean(gy)/mean(gu): {}".format(np.mean(gy_data)))
+                g_data=gy_data/gu
+                g_gen=gy_gen/gu
+                g_data[g_data == np.inf] = np.nan
+                g_gen[g_gen == np.inf] = np.nan
+                logger.info("data io gain2: {}".format(np.nanmean(g_data)))
+                logger.info("test io gain2: {}".format(np.nanmean(g_gen)))
+                ##
+    print("=== modified gain (limit cycle)")
+    init_state=[]
+    for el,st in init_state_list:
+        if el=="limit_cycle":
+            if st.shape[0]==1:
+                init_state.append([st.item()])
+            else:
+                init_state.append(st.to("cpu").detach().numpy().copy())
+        else:
+            print("unknown skip:",el)     
+    if len(init_state)>0:
+        init_state = np.array(init_state)+np.random.randn(100,state_dim)
+        init_state = torch.tensor(init_state,dtype=torch.float32)
+        out_state,out_obs=model.simulate_with_input(None, init_state, step=n_step)
+        stable_y=out_obs[:,-1,:].to("cpu").detach().numpy().copy()
+        stable_x=out_state[:,-1,:].to("cpu").detach().numpy().copy()
+        x0=init_state.to("cpu").detach().numpy().copy()
+        if all_data.input is not None:
+            yy_data_list=[]
+            yy_gen_list =[]
+            for k in range(len(stable_y)):
+                print("stable point:",x0[k,:],"-->",stable_x[k,:])
+                print("stable point(obs):",stable_y[k,:])
+                yy_data=np.sum((all_data.obs-stable_y[k,:])**2,axis=2)
+                yy_gen =np.sum((obs_gen     -stable_y[k,:])**2,axis=2)
+                yy_data_list.append(yy_data)
+                yy_gen_list.append(yy_gen)
+            yy_data= np.min(yy_data_list,axis=0)
+            yy_gen = np.min(yy_gen_list, axis=0)
             gu=np.sum(all_data.input**2,axis=2)
             ###
             gy_data=np.sqrt(np.mean(yy_data,axis=1))
@@ -464,7 +521,10 @@ def run_pred_mode(config, logger):
             logger.info("data io gain2: {}".format(np.nanmean(g_data)))
             logger.info("test io gain2: {}".format(np.nanmean(g_gen)))
             ##
-             
+
+         
+        ##
+
 def set_file_logger(logger,config,filename):
     if "log_path" in config:
         filename=config["log_path"]+"/"+filename

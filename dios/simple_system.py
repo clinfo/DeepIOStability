@@ -7,7 +7,7 @@ import logging
 import math
 
 class SimpleMLP(torch.nn.Module):
-    def __init__(self, in_dim, h_dim, out_dim, activation=F.relu6, scale=0.1, residual=False, negative_residual=False, with_bn=False):
+    def __init__(self, in_dim, h_dim, out_dim, activation=F.leaky_relu, scale=0.1, residual=False, residual_coeff=-1.0, offset=0.0, positive=False, with_bn=False):
         super(SimpleMLP, self).__init__()
         linears=[]
         bns=[]
@@ -26,12 +26,14 @@ class SimpleMLP(torch.nn.Module):
         self.activation = activation
         self.scale = scale
         self.residual = residual
-        self.negative_residual = negative_residual
+        self.residual_coeff = residual_coeff
+        self.offset = offset
+        self.positive = positive
 
     def get_layer(self,in_d,out_d):
         l=nn.Linear(in_d, out_d)
         #nn.init.kaiming_uniform_(l.weight)
-        nn.init.kaiming_normal_(l.weight,nonlinearity="relu")
+        nn.init.kaiming_normal_(l.weight,nonlinearity="leaky_relu")
         return l
 
     def forward(self, x):
@@ -42,12 +44,14 @@ class SimpleMLP(torch.nn.Module):
                 x = self.bns[i](x)
             x = self.activation(x)
         x = self.linears[len(self.linears)-1](x)
-        if self.negative_residual:
-            return x*self.scale-res_x
-        elif self.residual:
-            return x*self.scale+res_x
+        if self.residual:
+            out = x*self.scale+self.residual_coeff*res_x+self.offset
         else:
-            return x*self.scale
+            out = x*self.scale+self.offset
+        if self.positive:
+            return 1.0e-4+F.relu(out)
+        else:
+            return out
 
 class SimpleV1(torch.nn.Module):
     def __init__(self, in_dim, device=None):
@@ -203,6 +207,10 @@ class SimpleSystem(torch.nn.Module):
         scale=0.1,
         v_type="single",
         init_gamma=5,
+        system_f_residual=True,
+        system_f_residual_coeff=-1,
+        system_g_offset=0,
+        system_g_positive=False,
         schedule_pretrain_epoch=3,
         device=None,
     ):
@@ -225,7 +233,7 @@ class SimpleSystem(torch.nn.Module):
 
         self._func_h = SimpleMLP(state_dim, hidden_layer_h, obs_dim,scale=scale, with_bn=False)
         self._func_h_inv = SimpleMLP(obs_dim, hidden_layer_h, state_dim,scale=scale, with_bn=False)
-        self._func_f = SimpleMLP(state_dim, hidden_layer_f, state_dim,scale=scale, negative_residual=True)
+        self._func_f = SimpleMLP(state_dim, hidden_layer_f, state_dim,scale=scale, residual=system_f_residual, residual_coeff=system_f_residual_coeff)
         self._func_g = SimpleMLP(state_dim, hidden_layer_g, state_dim * input_dim,scale=scale)
         self._func_g_vec = SimpleMLP(state_dim, hidden_layer_g, input_dim,scale=1.0)
         if v_type=="single":
@@ -235,7 +243,6 @@ class SimpleSystem(torch.nn.Module):
         elif v_type=="many":
             self.func_v = SimpleV3(state_dim,device=device)
         elif v_type=="single_cycle":
-            self._func_h = SimpleMLP(state_dim, hidden_layer_h, obs_dim,scale=scale,residual=True)
             self.func_v = SimpleV4(state_dim,device=device)
         else:
             print("[ERROR] unknown:",v_type)
@@ -248,6 +255,7 @@ class SimpleSystem(torch.nn.Module):
 
         self.max_state_value=10
         self.max_obs_value=10
+
 
     def func_h(self,x):
         if len(x.shape) == 3:  # batch_size x time x state_dim
