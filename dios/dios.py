@@ -87,6 +87,7 @@ def get_default_config():
     config["v_type"] = "single"
     config["system_scale"] = 0.1
     config["learning_rate"] = 1.0e-2
+    config["optimizer"] = "rmsprop"
     # dataset
     config["train_valid_ratio"] = 0.2
     config["data_train"] = None

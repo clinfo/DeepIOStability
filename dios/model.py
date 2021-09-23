@@ -194,14 +194,16 @@ class DiosSSM:
         validloader = DataLoader(
             validset, batch_size=batch_size, shuffle=False, num_workers=4, timeout=20
         )
-        """
-        optimizer = optim.Adam(
-            self.system_model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"]
-        )
-        """
-        optimizer = optim.RMSprop(
-            self.system_model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"]
-        )
+        
+        if config["optimizer"]=="adam":
+            optimizer = optim.Adam(
+                self.system_model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"]
+            )
+        else:
+            optimizer = optim.RMSprop(
+                self.system_model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"]
+            )
+
         train_loss_logger = LossLogger()
         valid_loss_logger = LossLogger()
         prev_valid_loss=None

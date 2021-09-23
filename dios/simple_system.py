@@ -7,11 +7,13 @@ import logging
 import math
 
 class SimpleMLP(torch.nn.Module):
-    def __init__(self, in_dim, h_dim, out_dim, activation=F.leaky_relu, scale=0.1, residual=False, residual_coeff=-1.0, offset=0.0, positive=False, with_bn=False):
+    def __init__(self, in_dim, h_dim, out_dim, activation=F.leaky_relu, scale=0.1, residual=False, residual_coeff=-1.0, offset=0.0, positive=False, with_bn=False,with_dropout=False):
         super(SimpleMLP, self).__init__()
         linears=[]
         bns=[]
+        dos=[]
         self.with_bn=with_bn
+        self.with_dropout=with_dropout
         prev_d=in_dim
         if h_dim is None:
             h_dim=[]
@@ -19,10 +21,13 @@ class SimpleMLP(torch.nn.Module):
             linears.append(self.get_layer(prev_d,d))
             if with_bn:
                 bns.append(nn.BatchNorm1d(d))
+            if with_dropout:
+                dos.append(nn.Dropout(p=0.3))
             prev_d=d
         linears.append(self.get_layer(prev_d,out_dim))
         self.linears = nn.ModuleList(linears)
         self.bns = nn.ModuleList(bns)
+        self.dos = nn.ModuleList(dos)
         self.activation = activation
         self.scale = scale
         self.residual = residual
@@ -42,6 +47,8 @@ class SimpleMLP(torch.nn.Module):
             x = self.linears[i](x)
             if self.with_bn:
                 x = self.bns[i](x)
+            if self.with_dropout:
+                x = self.dos[i](x)
             x = self.activation(x)
         x = self.linears[len(self.linears)-1](x)
         if self.residual:
@@ -231,11 +238,17 @@ class SimpleSystem(torch.nn.Module):
         
         self.hj_loss_type=hj_loss_type
 
-        self._func_h = SimpleMLP(state_dim, hidden_layer_h, obs_dim,scale=scale, with_bn=False)
-        self._func_h_inv = SimpleMLP(obs_dim, hidden_layer_h, state_dim,scale=scale, with_bn=False)
-        self._func_f = SimpleMLP(state_dim, hidden_layer_f, state_dim,scale=scale, residual=system_f_residual, residual_coeff=system_f_residual_coeff)
-        self._func_g = SimpleMLP(state_dim, hidden_layer_g, state_dim * input_dim,scale=scale)
-        self._func_g_vec = SimpleMLP(state_dim, hidden_layer_g, input_dim,scale=1.0)
+        self._func_h = SimpleMLP(state_dim, hidden_layer_h, obs_dim,
+                scale=scale, with_bn=False, residual=True)
+        self._func_h_inv = SimpleMLP(obs_dim, hidden_layer_h, state_dim,
+                scale=scale, with_bn=False)
+        self._func_f = SimpleMLP(state_dim, hidden_layer_f, state_dim,
+                scale=1.0, residual=system_f_residual,
+                residual_coeff=system_f_residual_coeff,with_bn=False)
+        self._func_g = SimpleMLP(state_dim, hidden_layer_g, state_dim * input_dim,
+                scale=1.0,with_bn=False)
+        self._func_g_vec = SimpleMLP(state_dim, hidden_layer_g, input_dim,
+                scale=1.0,with_bn=False)
         if v_type=="single":
             self.func_v = SimpleV1(state_dim,device=device)
         elif v_type=="double":
