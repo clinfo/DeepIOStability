@@ -1,8 +1,8 @@
 {
-	"epoch":100,
+	"epoch":300,
 	"data_train":"dataset/sample.train",
 	"data_test":"dataset/sample.test",
-	"learning_rate":0.1,
+	"learning_rate":0.05,
 	"alpha_HJ":1.0,
 	"alpha_gamma":0.01,
 	"alpha_state":0.01,

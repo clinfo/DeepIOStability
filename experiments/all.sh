@@ -99,16 +99,22 @@ do_experiment () {
                 --data_train dataset/${pre}${ex_name}.train \
                 --data_test  dataset/${pre}${ex_name}.test
 
-
-        dios train,test --config config/${pre}config_fgh_loss.json  --gpu 0 &
-        dios train,test --config config/${pre}config_fg_loss.json   --gpu 1 &
-        dios train,test --config config/${pre}config_loss.json      --gpu 2 &
+        mkdir -p ${pre}result_fgh_loss
+        dios train,test --config config/${pre}config_fgh_loss.json  --gpu 0 2>${pre}result_fgh_loss/error.txt &
+        mkdir -p ${pre}result_fg_loss
+        dios train,test --config config/${pre}config_fg_loss.json   --gpu 1 2>${pre}result_fg_loss/error.txt  &
+        mkdir -p ${pre}result_loss
+        dios train,test --config config/${pre}config_loss.json      --gpu 2 2>${pre}result_loss/error.txt &
         wait
-        dios train,test --config config/${pre}config_fgh.json       --gpu 0 &
-        dios train,test --config config/${pre}config_fg.json        --gpu 1 &
-        dios train,test --config config/${pre}config_f.json         --gpu 2 &
+        mkdir -p ${pre}result_fgh
+        mkdir -p ${pre}result_fg
+        mkdir -p ${pre}result_f
+        dios train,test --config config/${pre}config_fgh.json       --gpu 0 2>${pre}result_fgh/error.txt &
+        dios train,test --config config/${pre}config_fg.json        --gpu 1 2>${pre}result_fg/error.txt &
+        dios train,test --config config/${pre}config_f.json         --gpu 2 2>${pre}result_f/error.txt &
         wait
-        dios train,test --config config/${pre}config_vanilla.json   --gpu 1 &
+        mkdir -p ${pre}result_vanilla
+        dios train,test --config config/${pre}config_vanilla.json   --gpu 1 2>${pre}result_vanilla/error.txt &
         wait
         
         dios-plot --config config/${pre}config_fgh_loss.json
@@ -133,19 +139,19 @@ do_experiment () {
 }
 
 
-do_experiment bistable 100
+#do_experiment bistable 100
 do_experiment glucose 100
 do_experiment glucose_insulin 100
-do_experiment limit_cycle 100 
+#do_experiment limit_cycle 100 
 do_experiment linear 100
-do_experiment nagumo 100
+#do_experiment nagumo 100
 
-do_experiment bistable 1000
+#do_experiment bistable 1000
 do_experiment glucose 1000
 do_experiment glucose_insulin 1000
-do_experiment limit_cycle 1000
+#do_experiment limit_cycle 1000
 do_experiment linear 1000
-do_experiment nagumo 1000
+#do_experiment nagumo 1000
 
 #do_experiment bistable 10000
 #do_experiment glucose 10000

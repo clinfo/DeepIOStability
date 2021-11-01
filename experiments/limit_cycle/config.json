@@ -1,9 +1,9 @@
 {
-	"epoch":100,
+	"epoch":300,
 	"data_train":"dataset/limit_cycle.train",
 	"data_test":"dataset/limit_cycle.test",
 	"v_type":"single_cycle",
-	"learning_rate":0.01,
+	"learning_rate":0.005,
 	"alpha_HJ":1.0,
 	"alpha_gamma":0.0,
 	"alpha_state":0.0,

@@ -237,9 +237,13 @@ class SimpleSystem(torch.nn.Module):
         self.input_dim = input_dim
         
         self.hj_loss_type=hj_loss_type
-
-        self._func_h = SimpleMLP(state_dim, hidden_layer_h, obs_dim,
-                scale=scale, with_bn=False, residual=True)
+    
+        if state_dim == obs_dim:
+            self._func_h = SimpleMLP(state_dim, hidden_layer_h, obs_dim,
+                    scale=scale, with_bn=False, residual=True)
+        else:
+            self._func_h = SimpleMLP(state_dim, hidden_layer_h, obs_dim,
+                    scale=scale, with_bn=False, residual=False)
         self._func_h_inv = SimpleMLP(obs_dim, hidden_layer_h, state_dim,
                 scale=scale, with_bn=False)
         self._func_f = SimpleMLP(state_dim, hidden_layer_f, state_dim,

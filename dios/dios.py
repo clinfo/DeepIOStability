@@ -457,27 +457,32 @@ def run_pred_mode(config, logger):
         stable_x=out_state[:,-1,:].to("cpu").detach().numpy().copy()
         x0=init_state.to("cpu").detach().numpy().copy()
         if all_data.input is not None:
+            yy_data_list=[]
+            yy_gen_list =[]
             for k in range(len(stable_y)):
                 print("stable point:",x0[k,:],"-->",stable_x[k,:])
                 print("stable point(obs):",stable_y[k,:])
                 yy_data=np.sum((all_data.obs-stable_y[k,:])**2,axis=2)
                 yy_gen =np.sum((obs_gen     -stable_y[k,:])**2,axis=2)
-                ###
-                gu=np.sum(all_data.input**2,axis=2)
-                ###
-                gy_data=np.sqrt(np.mean(yy_data,axis=1))
-                gy_gen =np.sqrt(np.mean(yy_gen ,axis=1))
-                gu     =np.sqrt(np.mean(gu,axis=1))
-                logger.info("mean(gu): {}".format(np.mean(gu)))
-                logger.info("mean(gy): {}".format(np.mean(gy_data)))
-                logger.info("mean(gy)/mean(gu): {}".format(np.mean(gy_data)))
-                g_data=gy_data/gu
-                g_gen=gy_gen/gu
-                g_data[g_data == np.inf] = np.nan
-                g_gen[g_gen == np.inf] = np.nan
-                logger.info("data io gain2: {}".format(np.nanmean(g_data)))
-                logger.info("test io gain2: {}".format(np.nanmean(g_gen)))
-                ##
+                yy_data_list.append(yy_data)
+                yy_gen_list.append(yy_gen)
+            yy_data= np.min(yy_data_list,axis=0)
+            yy_gen = np.min(yy_gen_list, axis=0)
+            gu=np.sum(all_data.input**2,axis=2)
+            ###
+            gy_data=np.sqrt(np.mean(yy_data,axis=1))
+            gy_gen =np.sqrt(np.mean(yy_gen ,axis=1))
+            gu     =np.sqrt(np.mean(gu,axis=1))
+            logger.info("mean(gu): {}".format(np.mean(gu)))
+            logger.info("mean(gy): {}".format(np.mean(gy_data)))
+            logger.info("mean(gy)/mean(gu): {}".format(np.mean(gy_data)))
+            g_data=gy_data/gu
+            g_gen=gy_gen/gu
+            g_data[g_data == np.inf] = np.nan
+            g_gen[g_gen == np.inf] = np.nan
+            logger.info("data io gain2: {}".format(np.nanmean(g_data)))
+            logger.info("test io gain2: {}".format(np.nanmean(g_gen)))
+            ##
     print("=== modified gain (limit cycle)")
     init_state=[]
     for el,st in init_state_list:
