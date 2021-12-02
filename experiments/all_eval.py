@@ -1,5 +1,6 @@
 import glob
 import os
+import re
 
 filenames=glob.glob("./**/eval.tsv")
 header=None
@@ -34,7 +35,14 @@ for filename in filenames:
             #else:
             #    method2="IO-Stability"
         setting_key=setting_key.split("_")[0]
-        data.append([name,setting_key,method1,method2]+arr)
+        m=re.search(r'([0-9]+?)result',setting_key)
+        if m:
+            setting_name=m.group(1)
+            setting_name=str(int(setting_name))
+        else:
+            setting_name=setting_key
+        print(setting_name)
+        data.append([name,setting_name,method1,method2]+arr)
 ofp = open("all_eval.tsv","w")
 s="\t".join(["name","setting","method_type","method"]+header)
 ofp.write(s)
