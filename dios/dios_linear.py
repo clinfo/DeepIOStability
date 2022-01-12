@@ -6,9 +6,33 @@ import dios
 import dios.linear
 import dios.AR
 from dios.data_util import load_data
-from dios.dios import get_default_config, build_config, set_file_logger
+from dios.dios import get_default_config, build_config, set_file_logger, compute_gain, compute_gain_with_stable
 import argparse
 from matplotlib import pylab as plt
+
+
+ss_type = ["ORT", "MOESP", "ORT_auto", "MOESP_auto"]
+ar_type = ["ARX", "PWARX", "ARX_auto", "PWARX_auto"]
+
+def simulate(model_name,model,u,y0):
+    n_temp=y0.shape[1]
+    N=u.shape[0]
+    stable_y=[]
+    out_y=[]
+    for i in range(N):
+        if model_name in ss_type:
+            x0 = model.predict_initial_state(u[i,:n_temp],y0[i,:n_temp])
+        elif model_name in ar_type:
+            x0 = model.predict_initial_state(y0[i])
+        else:
+            print("unknown model:", model_name)
+        y =model.predict(x0,u[i])
+        stable_y.append(y[-1,:])
+        out_y.append(y)
+    stable_y=np.array(stable_y)
+    out_y=np.array(out_y)
+    return out_y, stable_y
+
 
 
 def run_pred_mode(config, logger):
@@ -42,45 +66,12 @@ def run_pred_mode(config, logger):
     # チェックに使うデータを決める
     # 初期値の推定(最初の2点のデータのみ)
     obs_gen=[]
-    ss_type = ["ORT", "MOESP", "ORT_auto", "MOESP_auto"]
-    ar_type = ["ARX", "PWARX", "ARX_auto", "PWARX_auto"]
     n=len(u_test)
-    for i_N in range(n):
-        if model_name in ss_type:
-            x0 = model.predict_initial_state(u_test[i_N],y_test[i_N])
-        elif model_name in ar_type:
-            x0 = model.predict_initial_state(y_test[i_N])
-        else:
-            print("unknown model:", model_name)
-        #  予測 
-        y_hat =model.predict(x0,u_test[i_N])
-        obs_gen.append(y_hat)
-    obs_gen=np.array(obs_gen)
+    n_temp=20
+    obs_gen, _ = simulate(model_name,model,u_test,y_test[:,:n_temp,:])
     ####
     print("=== gain")
-    if all_data.stable is not None:
-        print("Enabled stable observation")
-        obs_stable=all_data.stable
-        yy_data=np.sum((all_data.obs-obs_stable)**2,axis=2)
-        yy_gen =np.sum((obs_gen     -obs_stable)**2,axis=2)
-    else:
-        yy_data=np.sum((all_data.obs)**2,axis=2)
-        yy_gen =np.sum((obs_gen     )**2,axis=2)
-    
-    gu=np.sum(all_data.input**2,axis=2)
-
-    gy_data=np.sqrt(np.mean(yy_data,axis=1))
-    gy_gen =np.sqrt(np.mean(yy_gen ,axis=1))
-    gu     =np.sqrt(np.mean(gu,axis=1))
-    logger.info("mean(gu): {}".format(np.mean(gu)))
-    logger.info("mean(gy): {}".format(np.mean(gy_data)))
-    logger.info("mean(gy)/mean(gu): {}".format(np.mean(gy_data)))
-    g_data=gy_data/gu
-    g_gen=gy_gen/gu
-    g_data[g_data == np.inf] = np.nan
-    g_gen[g_gen == np.inf] = np.nan
-    logger.info("data io gain: {}".format(np.nanmean(g_data)))
-    logger.info("test io gain: {}".format(np.nanmean(g_gen)))
+    gu, gy_data, gy_gen, egy_data = compute_gain(all_data,obs_gen,None,logger=logger)
     ##
     ## ...plotting
     np.random.seed(1234)
@@ -108,55 +99,52 @@ def run_pred_mode(config, logger):
         print("[SAVE]", filename)
         plt.savefig(filename,dpi=100)
     ###
-    print("=== long time (zero input)")
     np.random.seed(1234)
     N=10
     n_step=1000
     n_temp=20
     u=np.zeros((N,n_step,input_dim))
+    y0=np.zeros((N,n_temp,obs_dim))
+    _, stable_y = simulate(model_name,model,u,y0)
+    ##
+    compute_gain_with_stable(all_data.obs,all_data.input, None,None,stable_y, name="data", postfix="2",logger=logger)
+    compute_gain_with_stable(obs_gen,all_data.input,      None,None,stable_y, name="test", postfix="2",logger=logger)
+    ##
+
+    print("=== long time (zero input)")
+    u=np.zeros((N,n_step,input_dim))
     y0=np.random.normal(0,1,(N,n_temp,obs_dim))
+    y, _ = simulate(model_name,model,u,y0)
+    ## plotting
     fig = plt.figure()
     for i in range(N):
-        if model_name in ss_type:
-            x0 = model.predict_initial_state(u[i,:n_temp],y0[i,:n_temp])
-        elif model_name in ar_type:
-            x0 = model.predict_initial_state(y0[i])
-        else:
-            print("unknown model:", model_name)
-        y =model.predict(x0,u[i])
-        plt.plot(y)
-
-
+        plt.plot(y[i])
     plot_path=config["plot_path"]
     filename=plot_path+"/"+model_name+'_zero.png'
     print("[SAVE]", filename)
     plt.savefig(filename,dpi=100)
     ###
-    print("=== long time (random input)")
-    np.random.seed(1234)
-    u =np.random.normal(0,1,(N,n_step,input_dim))
-    y0=np.zeros((N,n_temp,obs_dim))
-    fig = plt.figure()
-    plt.subplot(2,1,1)
-    for i in range(N):
-        if model_name in ss_type:
-            x0 = model.predict_initial_state(u[i,:n_temp],y0[i,:n_temp])
-        elif model_name in ar_type:
-            x0 = model.predict_initial_state(y0[i])
-        else:
-            print("unknown model:", model_name)
-        y =model.predict(x0,u[i])
-        plt.plot(y)
 
-    plt.subplot(2,1,2)
-    for i in range(N):
-        plt.plot(u[i])
+    for scale in [1,10,20,30,40,50,60,70,80,90,100]:
+        print("=== long time (random input) {}".format(scale))
+        u =np.random.normal(0,scale,(N,n_step,input_dim))
+        y0=np.zeros((N,n_temp,obs_dim))
+        y, _ = simulate(model_name,model,u,y0)
 
-    plot_path=config["plot_path"]
-    filename=plot_path+"/"+model_name+'_rand.png'
-    print("[SAVE]", filename)
-    plt.savefig(filename,dpi=100)
-    ###
+        compute_gain_with_stable(y,u,None,None,stable_y,name="test",postfix="3_{:04}".format(scale),logger=logger)
+
+        fig = plt.figure()
+        plt.subplot(2,1,1)
+        for i in range(N):
+            plt.plot(y[i])
+        plt.subplot(2,1,2)
+        for i in range(N):
+            plt.plot(u[i])
+        plot_path=config["plot_path"]
+        filename=plot_path+"/"+model_name+'_rand.png'
+        print("[SAVE]", filename)
+        plt.savefig(filename,dpi=100)
+        ###
 
 def run_train_mode(config, logger):
     # ... loading data

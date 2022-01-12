@@ -7,6 +7,7 @@ from matplotlib.colors import LinearSegmentedColormap
 import argparse
 from matplotlib import pylab as plt
 from matplotlib import animation
+import glob
 
 
 def generate_cmap(colors):
@@ -434,38 +435,42 @@ def plot_sim(config,args):
         filename=config["result_path"]+"/sim_zero.png"
         print("[SAVE]",filename)
         plt.savefig(filename)
-    filename=config["result_path"]+"/sim/sim_rand.obs.npy"
-    if os.path.exists(filename):
-        print("[LOAD]", filename)
-        o = np.load(filename)
-        filename=config["result_path"]+"/sim/sim_rand.state.npy"
-        print("[LOAD]", filename)
-        s = np.load(filename)
-        ##
-        n=o.shape[0]
-        np.random.seed(1234)
-        idx_all=np.arange(n)
-        np.random.shuffle(idx_all)
-        fig = plt.figure()
-        plt.subplot(2, 1, 1)
-        for idx in idx_all[:args.random]:
-            y=o[idx]
-            x=s[idx]
-            plot_dim = x.shape[1]
-            for i in range(plot_dim):
-                plt.plot(x[:, i], label="dim-" + str(i) + "/" + str(x.shape[1]))
-        plt.title("state")    
-        plt.subplot(2, 1, 2)
-        for idx in idx_all[:args.random]:
-            y=o[idx]
-            x=s[idx]
-            plot_dim = y.shape[1]
-            for i in range(plot_dim):
-                plt.plot(y[:, i], label="dim-" + str(i) + "/" + str(y.shape[1]))
-        plt.title("observation")
-        filename=config["result_path"]+"/sim_rand.png"
-        print("[SAVE]",filename)
-        plt.savefig(filename)
+    
+    filepath=config["result_path"]+"/sim/sim_rand*.obs.npy"
+    for filename in glob.glob(filepath):
+        basename,_=os.path.splitext(os.path.basename(filename))
+        basename,_=os.path.splitext(basename)
+        if os.path.exists(filename):
+            print("[LOAD]", filename)
+            o = np.load(filename)
+            filename=config["result_path"]+"/sim/"+basename+".state.npy"
+            print("[LOAD]", filename)
+            s = np.load(filename)
+            ##
+            n=o.shape[0]
+            np.random.seed(1234)
+            idx_all=np.arange(n)
+            np.random.shuffle(idx_all)
+            fig = plt.figure()
+            plt.subplot(2, 1, 1)
+            for idx in idx_all[:args.random]:
+                y=o[idx]
+                x=s[idx]
+                plot_dim = x.shape[1]
+                for i in range(plot_dim):
+                    plt.plot(x[:, i], label="dim-" + str(i) + "/" + str(x.shape[1]))
+            plt.title("state")    
+            plt.subplot(2, 1, 2)
+            for idx in idx_all[:args.random]:
+                y=o[idx]
+                x=s[idx]
+                plot_dim = y.shape[1]
+                for i in range(plot_dim):
+                    plt.plot(y[:, i], label="dim-" + str(i) + "/" + str(y.shape[1]))
+            plt.title("observation")
+            filename=config["result_path"]+"/"+basename+".png"
+            print("[SAVE]",filename)
+            plt.savefig(filename)
 
 
 def plot_field(config,args):

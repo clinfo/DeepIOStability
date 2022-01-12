@@ -452,7 +452,8 @@ class SimpleSystem(torch.nn.Module):
         return Pdv/(scale+1.0e-10)
 
     def compute_scale_fgh(self, x):
-        x_=torch.tensor(x,requires_grad=True)
+        #x_=torch.tensor(x,requires_grad=True)
+        x_=x.clone().detach().requires_grad_(True)
         v,i_v = self.func_v(x_)
         # v is independet w.r.t. batch and time
         dv = torch.autograd.grad(v.sum(), x_, create_graph=True)[0].detach()

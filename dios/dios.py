@@ -259,6 +259,76 @@ def save_simulation(config,data,states,obs_gen):
         print("[SAVE]", filename)
         np.save(filename, states.to("cpu").detach().numpy().copy())
 
+def compute_gain(all_data,obs_gen,hh,logger):
+    if all_data.stable is not None:
+        print("Enabled stable observation")
+        obs_stable=all_data.stable
+        yy_data=np.sum((all_data.obs-obs_stable)**2,axis=2)
+        yy_gen =np.sum((obs_gen     -obs_stable)**2,axis=2)
+    else:
+        yy_data=np.sum((all_data.obs)**2,axis=2)
+        yy_gen =np.sum((obs_gen     )**2,axis=2)
+    ###
+    gu=np.sum(all_data.input**2,axis=2)
+
+    gy_data=np.sqrt(np.mean(yy_data,axis=1))
+    gy_gen =np.sqrt(np.mean(yy_gen ,axis=1))
+    gu     =np.sqrt(np.mean(gu,axis=1))
+    logger.info("mean(gu): {}".format(np.mean(gu)))
+    logger.info("mean(gy): {}".format(np.mean(gy_data)))
+    logger.info("mean(gy)/mean(gu): {}".format(np.mean(gy_data)))
+    g_data=gy_data/gu
+    g_gen=gy_gen/gu
+    g_data[g_data == np.inf] = np.nan
+    g_gen[g_gen == np.inf] = np.nan
+    logger.info("data io gain1: {}".format(np.nanmean(g_data)))
+    logger.info("test io gain1: {}".format(np.nanmean(g_gen)))
+    
+    egy_data=None
+    if hh is not None:
+        ey_data=2*hh
+        egy_data=np.sqrt(np.mean(ey_data,axis=1))
+        eg_data=egy_data/gu
+        eg_data[eg_data == np.inf] = np.nan
+        logger.info("estimated test io gain1: {}".format(np.nanmean(eg_data)))
+        #logger.info("estimated test io gain[0]: {}".format((egy_data/gu)[0]))
+    return gu, gy_data, gy_gen, egy_data
+ 
+def print_stable_point(x0,stable_x,stable_y):
+    for k in range(len(stable_x)):
+        print("stable point:",x0[k,:],"-->",stable_x[k,:])
+        print("stable point(obs):",stable_y[k,:])
+
+#def compute_gain_with_stable(all_data,x0,stable_x,stable_y,obs_gen):
+def compute_gain_with_stable(obs,input_u,x0,stable_x,stable_y, name="data", postfix="2",logger=None):
+    yy_data_list=[]
+    for k in range(len(stable_y)):
+        yy_data=np.sum((obs     -stable_y[k,:])**2,axis=2)
+        yy_data_list.append(yy_data)
+    yy_data= np.min(yy_data_list,axis=0)
+    gu=np.sum(input_u**2,axis=2)
+    ###
+    gy_data=np.sqrt(np.mean(yy_data,axis=1))
+    gu     =np.sqrt(np.mean(gu,axis=1))
+    logger.info("mean(gu): {}".format(np.mean(gu)))
+    logger.info("mean(gy): {}".format(np.mean(gy_data)))
+    logger.info("mean(gy)/mean(gu): {}".format(np.mean(gy_data)/np.mean(gu)))
+    g_data=gy_data/gu
+    g_data[g_data == np.inf] = np.nan
+    logger.info("{} io gain{}: {}".format(name,postfix,np.nanmean(g_data)))
+    ##
+    return
+
+def get_initial_state_list(model):
+    _,init_state_list=model.system_model.get_stable()
+    init_state=[]
+    for el,st in init_state_list:
+        if el=="point":
+            if st.shape[0]==1:
+                init_state.append([st.item()])
+            else:
+                init_state.append(st.to("cpu").detach().numpy().copy())
+    return init_state
 
 def run_pred_mode(config, logger):
     logger.info("... loading data")
@@ -330,40 +400,11 @@ def run_pred_mode(config, logger):
     ####
     print("=== gain")
     if all_data.input is not None:
-        if all_data.stable is not None:
-            print("Enabled stable observation")
-            obs_stable=all_data.stable
-            yy_data=np.sum((all_data.obs-obs_stable)**2,axis=2)
-            yy_gen =np.sum((obs_gen     -obs_stable)**2,axis=2)
-        else:
-            yy_data=np.sum((all_data.obs)**2,axis=2)
-            yy_gen =np.sum((obs_gen     )**2,axis=2)
-        ###
-        gu=np.sum(all_data.input**2,axis=2)
-
-        gy_data=np.sqrt(np.mean(yy_data,axis=1))
-        gy_gen =np.sqrt(np.mean(yy_gen ,axis=1))
-        gu     =np.sqrt(np.mean(gu,axis=1))
-        logger.info("mean(gu): {}".format(np.mean(gu)))
-        logger.info("mean(gy): {}".format(np.mean(gy_data)))
-        logger.info("mean(gy)/mean(gu): {}".format(np.mean(gy_data)))
-        g_data=gy_data/gu
-        g_gen=gy_gen/gu
-        g_data[g_data == np.inf] = np.nan
-        g_gen[g_gen == np.inf] = np.nan
-        logger.info("data io gain1: {}".format(np.nanmean(g_data)))
-        logger.info("test io gain1: {}".format(np.nanmean(g_gen)))
-        ##
-        ey_data=2*hh
-        egy_data=np.sqrt(np.mean(ey_data,axis=1))
-        eg_data=egy_data/gu
-        eg_data[eg_data == np.inf] = np.nan
-        os.makedirs(config["simulation_path"], exist_ok=True)
-        logger.info("estimated test io gain1: {}".format(np.nanmean(eg_data)))
-        #logger.info("estimated test io gain[0]: {}".format((egy_data/gu)[0]))
+        gu, gy_data, gy_gen, egy_data = compute_gain(all_data,obs_gen,hh,logger=logger)
         gamma=sys.get_gamma().item()
-        ##
         logger.info("gamma: {}".format(gamma))
+
+        os.makedirs(config["simulation_path"], exist_ok=True)
         print("[SAVE]", config["simulation_path"]+"/gain.tsv")
         with open(config["simulation_path"]+"/gain.tsv","w") as fp:
             fp.write("\t".join(["gamma","input_gain","data_output_gain", "test_output_gain","estimated_test_output_gain"]))
@@ -372,8 +413,6 @@ def run_pred_mode(config, logger):
                 fp.write("\t".join([str(gamma),str(gu[i]),str(gy_data[i]),str(gy_gen[i]),str(egy_data[i])]))
                 fp.write("\n")
         
-
-
     ####
     print("=== stable")
     st_h_mu,st_mu=model.system_model.get_stable()
@@ -411,6 +450,47 @@ def run_pred_mode(config, logger):
         filename=config["simulation_path"]+"/field_vec.npy"
         print("[SAVE]", filename)
         np.save(filename, vec)
+
+    ####
+    stable_x=None # N x state dim. 
+    stable_y=None # N x state dim. 
+
+    print("=== modified gain (point)")
+    print("=== new stable points are defined after n_step transition from  the intial points")
+    n_step=1000
+    init_state = get_initial_state_list(model)
+    if len(init_state)>0:
+        print(init_state)
+        ## comnputing new stable points
+        init_state = np.array(init_state)
+        init_state = torch.tensor(init_state,dtype=torch.float32)
+        out_state,out_obs=model.simulate_with_input(None, init_state, step=n_step)
+        stable_y=out_obs[:,-1,:].to("cpu").detach().numpy().copy()
+        stable_x=out_state[:,-1,:].to("cpu").detach().numpy().copy()
+        ## re-computing gain1 using new stable points
+        x0=init_state.to("cpu").detach().numpy().copy()
+        if all_data.input is not None:
+            compute_gain_with_stable(all_data.obs,all_data.input, x0,stable_x,stable_y, name="data", postfix="2",logger=logger)
+            compute_gain_with_stable(obs_gen,all_data.input,      x0,stable_x,stable_y, name="test", postfix="2",logger=logger)
+            print_stable_point(x0,stable_x,stable_y)
+            
+    print("=== modified gain (limit cycle)")
+    print("=== new stable points are defined after n_step transition from  the intial points")
+    init_state = get_initial_state_list(model)
+    if len(init_state)>0:
+        ## comnputing new stable points
+        init_state = np.array(init_state)+np.random.randn(100,state_dim)
+        init_state = torch.tensor(init_state,dtype=torch.float32)
+        out_state,out_obs=model.simulate_with_input(None, init_state, step=n_step)
+        stable_y=out_obs[:,-1,:].to("cpu").detach().numpy().copy()
+        stable_x=out_state[:,-1,:].to("cpu").detach().numpy().copy()
+        ## re-computing gain1 using new stable points
+        x0=init_state.to("cpu").detach().numpy().copy()
+        if all_data.input is not None:
+            compute_gain_with_stable(all_data.obs,all_data.input,x0,stable_x,stable_y, name="data", postfix="2",logger=logger)
+            compute_gain_with_stable(obs_gen,all_data.input,x0,stable_x,stable_y, name="test", postfix="2",logger=logger)
+            print_stable_point(x0,stable_x,stable_y)
+    
     ####
     N=10
     n_step=1000
@@ -426,111 +506,26 @@ def run_pred_mode(config, logger):
         print("[SAVE]", filename)
         np.save(filename, out_state)
     ####
-    print("=== long time (random input)")
-    input_data=torch.tensor(np.random.normal(0,1,(N,n_step,input_dim)),dtype=torch.float32)
-    init_state=torch.tensor(np.random.normal(0,1,(N,state_dim)),dtype=torch.float32)
-    out_state,out_obs=model.simulate_with_input(input_data, init_state, step=n_step)
-    if "simulation_path" in config:
-        os.makedirs(config["simulation_path"], exist_ok=True)
-        filename=config["simulation_path"]+"/sim_rand.obs.npy"
-        print("[SAVE]", filename)
-        np.save(filename, out_obs)
-        filename=config["simulation_path"]+"/sim_rand.state.npy"
-        print("[SAVE]", filename)
-        np.save(filename, out_state)
-    ####
-    print("=== modified gain (point)")
-    _,init_state_list=model.system_model.get_stable()
-    init_state=[]
-    for el,st in init_state_list:
-        if el=="point":
-            if st.shape[0]==1:
-                init_state.append([st.item()])
-            else:
-                init_state.append(st.to("cpu").detach().numpy().copy())
-    if len(init_state)>0:
-        print(init_state)
-        init_state = np.array(init_state)
-        init_state = torch.tensor(init_state,dtype=torch.float32)
-        out_state,out_obs=model.simulate_with_input(None, init_state, step=n_step)
-        stable_y=out_obs[:,-1,:].to("cpu").detach().numpy().copy()
-        stable_x=out_state[:,-1,:].to("cpu").detach().numpy().copy()
-        x0=init_state.to("cpu").detach().numpy().copy()
-        if all_data.input is not None:
-            yy_data_list=[]
-            yy_gen_list =[]
-            for k in range(len(stable_y)):
-                print("stable point:",x0[k,:],"-->",stable_x[k,:])
-                print("stable point(obs):",stable_y[k,:])
-                yy_data=np.sum((all_data.obs-stable_y[k,:])**2,axis=2)
-                yy_gen =np.sum((obs_gen     -stable_y[k,:])**2,axis=2)
-                yy_data_list.append(yy_data)
-                yy_gen_list.append(yy_gen)
-            yy_data= np.min(yy_data_list,axis=0)
-            yy_gen = np.min(yy_gen_list, axis=0)
-            gu=np.sum(all_data.input**2,axis=2)
-            ###
-            gy_data=np.sqrt(np.mean(yy_data,axis=1))
-            gy_gen =np.sqrt(np.mean(yy_gen ,axis=1))
-            gu     =np.sqrt(np.mean(gu,axis=1))
-            logger.info("mean(gu): {}".format(np.mean(gu)))
-            logger.info("mean(gy): {}".format(np.mean(gy_data)))
-            logger.info("mean(gy)/mean(gu): {}".format(np.mean(gy_data)))
-            g_data=gy_data/gu
-            g_gen=gy_gen/gu
-            g_data[g_data == np.inf] = np.nan
-            g_gen[g_gen == np.inf] = np.nan
-            logger.info("data io gain2: {}".format(np.nanmean(g_data)))
-            logger.info("test io gain2: {}".format(np.nanmean(g_gen)))
-            ##
-    print("=== modified gain (limit cycle)")
-    init_state=[]
-    for el,st in init_state_list:
-        if el=="limit_cycle":
-            if st.shape[0]==1:
-                init_state.append([st.item()])
-            else:
-                init_state.append(st.to("cpu").detach().numpy().copy())
-        else:
-            print("unknown skip:",el)     
-    if len(init_state)>0:
-        init_state = np.array(init_state)+np.random.randn(100,state_dim)
-        init_state = torch.tensor(init_state,dtype=torch.float32)
-        out_state,out_obs=model.simulate_with_input(None, init_state, step=n_step)
-        stable_y=out_obs[:,-1,:].to("cpu").detach().numpy().copy()
-        stable_x=out_state[:,-1,:].to("cpu").detach().numpy().copy()
-        x0=init_state.to("cpu").detach().numpy().copy()
-        if all_data.input is not None:
-            yy_data_list=[]
-            yy_gen_list =[]
-            for k in range(len(stable_y)):
-                print("stable point:",x0[k,:],"-->",stable_x[k,:])
-                print("stable point(obs):",stable_y[k,:])
-                yy_data=np.sum((all_data.obs-stable_y[k,:])**2,axis=2)
-                yy_gen =np.sum((obs_gen     -stable_y[k,:])**2,axis=2)
-                yy_data_list.append(yy_data)
-                yy_gen_list.append(yy_gen)
-            yy_data= np.min(yy_data_list,axis=0)
-            yy_gen = np.min(yy_gen_list, axis=0)
-            gu=np.sum(all_data.input**2,axis=2)
-            ###
-            gy_data=np.sqrt(np.mean(yy_data,axis=1))
-            gy_gen =np.sqrt(np.mean(yy_gen ,axis=1))
-            gu     =np.sqrt(np.mean(gu,axis=1))
-            logger.info("mean(gu): {}".format(np.mean(gu)))
-            logger.info("mean(gy): {}".format(np.mean(gy_data)))
-            logger.info("mean(gy)/mean(gu): {}".format(np.mean(gy_data)))
-            g_data=gy_data/gu
-            g_gen=gy_gen/gu
-            g_data[g_data == np.inf] = np.nan
-            g_gen[g_gen == np.inf] = np.nan
-            logger.info("data io gain2: {}".format(np.nanmean(g_data)))
-            logger.info("test io gain2: {}".format(np.nanmean(g_gen)))
-            ##
-
-         
-        ##
-
+    for scale in [1,10,20,30,40,50,60,70,80,90,100]:
+        print("=== long time (random input) {}".format(scale))
+        input_data=torch.tensor(np.random.normal(0,scale,(N,n_step,input_dim)),dtype=torch.float32)
+        init_state=torch.tensor(np.random.normal(0,1,(N,state_dim)),dtype=torch.float32)
+        out_state,out_obs=model.simulate_with_input(input_data, init_state, step=n_step)
+        ## computing gain
+        out_obs   =   out_obs.to("cpu").detach().numpy().copy()
+        input_data=input_data.to("cpu").detach().numpy().copy()
+        init_state=init_state.to("cpu").detach().numpy().copy()
+        compute_gain_with_stable(out_obs,input_data,init_state,stable_x,stable_y,name="test",postfix="3_{:04}".format(scale),logger=logger)
+        if "simulation_path" in config:
+            os.makedirs(config["simulation_path"], exist_ok=True)
+            filename=config["simulation_path"]+"/sim_rand{:04}.obs.npy".format(scale)
+            print("[SAVE]", filename)
+            np.save(filename, out_obs)
+            filename=config["simulation_path"]+"/sim_rand{:04}.state.npy".format(scale)
+            print("[SAVE]", filename)
+            np.save(filename, out_state)
+    #########
+ 
 def set_file_logger(logger,config,filename):
     if "log_path" in config:
         filename=config["log_path"]+"/"+filename

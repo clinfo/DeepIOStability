@@ -3,7 +3,7 @@
 	"data_train":"dataset/glucose_insulin.train",
 	"data_test": "dataset/glucose_insulin.test",
 	"result_path":"result/",
-	"learning_rate":0.005,
+	"learning_rate":0.001,
 	"system_scale":0.01,
 	"alpha_HJ":1.0,
 	"alpha_gamma":0.01,
