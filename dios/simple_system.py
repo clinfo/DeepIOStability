@@ -270,6 +270,7 @@ class SimpleSystem(torch.nn.Module):
         self.schedule_stable_type=stable_type
         self.schedule_pretrain_epoch=schedule_pretrain_epoch
 
+        self.max_value_clipping=False
         self.max_state_value=10
         self.max_obs_value=10
 
@@ -487,6 +488,7 @@ class SimpleSystem(torch.nn.Module):
 
 
         """
+        k2=1/2
         if self.stable_type=="f":
             x_=torch.tensor(x,requires_grad=True)
             v,i_v = self.func_v(x_)
@@ -497,41 +499,38 @@ class SimpleSystem(torch.nn.Module):
             scale=F.relu(hj_dvf)/dv_det
             proj= dv * scale.unsqueeze(-1)
             f_new= self.func_f(x) - proj#.detach()
-            f_new = torch.clip(f_new, -self.max_state_value, self.max_state_value)
-            return f_new
         elif self.stable_type=="fgh":
             hj_dvf, v_g, v_h, dv = self.compute_scale_fgh(x)
             v_gh = v_g+v_h
             dv_det = torch.sum(dv **2, dim=-1)+1.0e-10
-            scale = F.relu(hj_dvf+1/2.0*v_gh)/dv_det
+            scale = F.relu(hj_dvf+k2*v_gh)/dv_det
             proj = dv * scale.unsqueeze(-1)
             f_new= self.func_f(x) - proj#.detach()
-            f_new = torch.clip(f_new, -self.max_state_value, self.max_state_value)
-            return f_new
         elif self.stable_type=="fg":
             hj_dvf, v_g, v_h, dv = self.compute_scale_fgh(x)
             v_fh = hj_dvf+v_h
             dv_det = torch.sum(dv **2, dim=-1)+1.0e-10
-            scale = F.relu(v_fh+1/2.0*v_g)/dv_det
+            scale = F.relu(v_fh+k2*v_g)/dv_det
             proj = dv * scale.unsqueeze(-1)
             f_new= self.func_f(x) - proj#.detach()
-            f_new = torch.clip(f_new, -self.max_state_value, self.max_state_value)
-            return f_new
         else:
             ## standard
             f_new = self.func_f(x)
+        if self.max_value_clipping:
             f_new = torch.clip(f_new, -self.max_state_value, self.max_state_value)
-            return f_new
+        return f_new
 
     def compute_g(self,x):
+        k2=1/2
         if self.stable_type=="fgh":
             g = self.func_g_mat(x)
             hj_dvf, v_g, v_h, dv = self.compute_scale_fgh(x)
             v_gh = v_g+v_h+1.0e-10
             #Pdv (tensor): batch (x time) x state dimension x state dimension 
+            #g   (tensor): batch (x time) x input dimension x state dimension 
             pdv = self.compute_Pdv(dv)
-            scale = torch.sqrt(torch.clip(-hj_dvf/v_gh,1/2,1))
-            scale=scale.unsqueeze(-1).unsqueeze(-1)
+            scale = torch.sqrt(torch.clip(-hj_dvf/v_gh,k2,1))
+            scale = scale.unsqueeze(-1).unsqueeze(-1)
             proj = (1-scale)*torch.matmul(g,pdv)
             #print("hj_dvf:",hj_dvf.shape)
             #print("v_gh:",v_gh.shape)
@@ -540,38 +539,46 @@ class SimpleSystem(torch.nn.Module):
             #print("scale:",scale.shape)
             #print("proj:",proj.shape)
             g_new = g - proj#.detach()
-            g_new = torch.clip(g_new, -self.max_state_value, self.max_state_value)
-            return g_new
         elif self.stable_type=="fg":
             g = self.func_g_mat(x)
             hj_dvf, v_g, v_h, dv = self.compute_scale_fgh(x)
             v_fh = hj_dvf+v_h
             #Pdv (tensor): batch (x time) x state dimension x state dimension 
             pdv = self.compute_Pdv(dv)
-            scale = torch.sqrt(torch.clip(-v_fh/(v_g+1.0e-10),1/2,1))
-            scale=scale.unsqueeze(-1).unsqueeze(-1)
+            scale = torch.sqrt(torch.clip(-v_fh/(v_g+1.0e-10),k2,1))
+            scale = scale.unsqueeze(-1).unsqueeze(-1)
             proj = (1-scale)*torch.matmul(g,pdv)
             g_new = g - proj#.detach()
-            g_new = torch.clip(g_new, -self.max_state_value, self.max_state_value)
-            return g_new
         else:
             g_new = self.func_g_mat(x)
+        if self.max_value_clipping:
             g_new = torch.clip(g_new, -self.max_state_value, self.max_state_value)
-            return g_new
+        return g_new
 
     def compute_h(self,x):
+        k2=1/2
         if self.stable_type=="fgh":
-            r=0.5
+            hj_dvf, v_g, v_h, dv = self.compute_scale_fgh(x)
+            v_gh = v_g+v_h+1.0e-10
+            scale = torch.sqrt(torch.clip(-hj_dvf/v_gh,k2,1))
+            scale=scale.unsqueeze(-1)
+            #print("hj_dvf:",hj_dvf.shape)
+            #print("scale:",torch.mean(scale).item())
+            #print("scale:",scale.shape)
+            
+            # h_star: batch (x time) x obs dimension
             _, h_star=self.compute_h_star(x)
             h_star= h_star.detach()
             h_hat = self.func_h(x)
-            h_new = h_star+(1-r)*(h_hat-h_star)
-            h_new = torch.clip(h_new, -self.max_obs_value, self.max_obs_value)
-            return h_new
+            #print("h_star:",h_star.shape)
+            #print("h_hat:",h_hat.shape)
+
+            h_new = h_star+scale*(h_hat-h_star)
         else:
             h_new = self.func_h(x)
+        if self.max_value_clipping:
             h_new = torch.clip(h_new, -self.max_obs_value, self.max_obs_value)
-            return h_new
+        return h_new
     
     def compute_h_star(self, x, i_v=None, hx=None):
         """
@@ -828,8 +835,8 @@ class SimpleSystem(torch.nn.Module):
         ###
         ### observation loss
         ###
-        # print("obs(r)",obs_generated.shape)
-        # print("obs",obs.shape)
+        #print("obs(r)",obs_generated.shape)
+        #print("obs",obs.shape)
         # print("state",state.shape)
         loss_recons = (obs - obs_generated) ** 2
         
