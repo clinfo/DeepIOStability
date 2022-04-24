@@ -319,11 +319,12 @@ def compute_gain_with_stable(obs,input_u,x0,stable_x,stable_y, name="data", post
     ##
     return
 
-def get_initial_state_list(model):
+def get_initial_state_list(model,key):
+    # key=point/limit_cycle
     _,init_state_list=model.system_model.get_stable()
     init_state=[]
     for el,st in init_state_list:
-        if el=="point":
+        if el==key:
             if st.shape[0]==1:
                 init_state.append([st.item()])
             else:
@@ -458,7 +459,7 @@ def run_pred_mode(config, logger):
     print("=== modified gain (point)")
     print("=== new stable points are defined after n_step transition from  the intial points")
     n_step=1000
-    init_state = get_initial_state_list(model)
+    init_state = get_initial_state_list(model,"point")
     if len(init_state)>0:
         print(init_state)
         ## comnputing new stable points
@@ -476,7 +477,7 @@ def run_pred_mode(config, logger):
             
     print("=== modified gain (limit cycle)")
     print("=== new stable points are defined after n_step transition from  the intial points")
-    init_state = get_initial_state_list(model)
+    init_state = get_initial_state_list(model,"limit_cycle")
     if len(init_state)>0:
         ## comnputing new stable points
         init_state = np.array(init_state)+np.random.randn(100,state_dim)
