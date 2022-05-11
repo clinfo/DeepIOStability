@@ -270,7 +270,7 @@ class SimpleSystem(torch.nn.Module):
         self.schedule_stable_type=stable_type
         self.schedule_pretrain_epoch=schedule_pretrain_epoch
 
-        self.max_value_clipping=False
+        self.max_value_clipping=True
         self.max_state_value=10
         self.max_obs_value=10
 
@@ -472,7 +472,7 @@ class SimpleSystem(torch.nn.Module):
         hj_gg = 1 / (2.0 * gamma ** 2 + 1.0e-10) * gdv2
         return hj_dvf, hj_gg, hj_hh, dv
 
-    def compute_f(self, x):
+    def compute_f(self, x, stable_type=None):
         """
         Args:
             x (tensor): batch x time x state dimension
@@ -489,7 +489,9 @@ class SimpleSystem(torch.nn.Module):
 
         """
         k2=1/2
-        if self.stable_type=="f":
+        if stable_type is None:
+            stable_type=self.stable_type
+        if stable_type=="f":
             x_=torch.tensor(x,requires_grad=True)
             v,i_v = self.func_v(x_)
             # v is independet w.r.t. batch and time
@@ -499,14 +501,14 @@ class SimpleSystem(torch.nn.Module):
             scale=F.relu(hj_dvf)/dv_det
             proj= dv * scale.unsqueeze(-1)
             f_new= self.func_f(x) - proj#.detach()
-        elif self.stable_type=="fgh":
+        elif stable_type=="fgh":
             hj_dvf, v_g, v_h, dv = self.compute_scale_fgh(x)
             v_gh = v_g+v_h
             dv_det = torch.sum(dv **2, dim=-1)+1.0e-10
             scale = F.relu(hj_dvf+k2*v_gh)/dv_det
             proj = dv * scale.unsqueeze(-1)
             f_new= self.func_f(x) - proj#.detach()
-        elif self.stable_type=="fg":
+        elif stable_type=="fg":
             hj_dvf, v_g, v_h, dv = self.compute_scale_fgh(x)
             v_fh = hj_dvf+v_h
             dv_det = torch.sum(dv **2, dim=-1)+1.0e-10
@@ -516,13 +518,15 @@ class SimpleSystem(torch.nn.Module):
         else:
             ## standard
             f_new = self.func_f(x)
-        if self.max_value_clipping:
-            f_new = torch.clip(f_new, -self.max_state_value, self.max_state_value)
+        #if self.max_value_clipping:
+        #    f_new = torch.clip(f_new, -self.max_state_value, self.max_state_value)
         return f_new
 
-    def compute_g(self,x):
+    def compute_g(self, x, stable_type=None):
         k2=1/2
-        if self.stable_type=="fgh":
+        if stable_type is None:
+            stable_type=self.stable_type
+        if stable_type=="fgh":
             g = self.func_g_mat(x)
             hj_dvf, v_g, v_h, dv = self.compute_scale_fgh(x)
             v_gh = v_g+v_h+1.0e-10
@@ -539,7 +543,7 @@ class SimpleSystem(torch.nn.Module):
             #print("scale:",scale.shape)
             #print("proj:",proj.shape)
             g_new = g - proj#.detach()
-        elif self.stable_type=="fg":
+        elif stable_type=="fg":
             g = self.func_g_mat(x)
             hj_dvf, v_g, v_h, dv = self.compute_scale_fgh(x)
             v_fh = hj_dvf+v_h
@@ -551,13 +555,15 @@ class SimpleSystem(torch.nn.Module):
             g_new = g - proj#.detach()
         else:
             g_new = self.func_g_mat(x)
-        if self.max_value_clipping:
-            g_new = torch.clip(g_new, -self.max_state_value, self.max_state_value)
+        #if self.max_value_clipping:
+        #    g_new = torch.clip(g_new, -self.max_state_value, self.max_state_value)
         return g_new
 
-    def compute_h(self,x):
+    def compute_h(self, x, stable_type):
         k2=1/2
-        if self.stable_type=="fgh":
+        if stable_type is None:
+            stable_type=self.stable_type
+        if stable_type=="fgh":
             hj_dvf, v_g, v_h, dv = self.compute_scale_fgh(x)
             v_gh = v_g+v_h+1.0e-10
             scale = torch.sqrt(torch.clip(-hj_dvf/v_gh,k2,1))
@@ -576,8 +582,8 @@ class SimpleSystem(torch.nn.Module):
             h_new = h_star+scale*(h_hat-h_star)
         else:
             h_new = self.func_h(x)
-        if self.max_value_clipping:
-            h_new = torch.clip(h_new, -self.max_obs_value, self.max_obs_value)
+        #if self.max_value_clipping:
+        #    h_new = torch.clip(h_new, -self.max_obs_value, self.max_obs_value)
         return h_new
     
     def compute_h_star(self, x, i_v=None, hx=None):
@@ -697,7 +703,8 @@ class SimpleSystem(torch.nn.Module):
         v,i_v = self.func_v(x)
         # v is independet w.r.t. batch and time
         dv = torch.autograd.grad(v.sum(), x, create_graph=True)[0].detach()
-        hj_dvf = torch.sum(dv * self.compute_f(x), dim=-1)
+        fx = self.func_f(x)
+        hj_dvf = torch.sum(dv * fx, dim=-1)
         ## gamma
         if self.gamma is None:
             gamma = (1.0e-4+F.relu(self.param_gamma))
@@ -706,7 +713,7 @@ class SimpleSystem(torch.nn.Module):
         ## hh
         hj_hh = 1 / 2.0 * self.distance_h(x, i_v)
         ## gg
-        gx = self.compute_g(x)
+        gx = self.func_g_mat(x)
         gdv2 = self.compute_GdV(dv, gx)
         hj_gg = 1 / (2.0 * gamma ** 2 + 1.0e-10) * gdv2
 
@@ -731,31 +738,35 @@ class SimpleSystem(torch.nn.Module):
         o = torch.squeeze(o, -2)
         return o
 
-    def simulate_one_step(self, current_state, input_=None):
+    def simulate_one_step(self, current_state, input_=None, stable_type=None):
         if input_ is not None:
             ###
-            g = self.compute_g(current_state)
+            g = self.compute_g(current_state,stable_type)
             u = input_[:, :]
             ug = self.vecmat_mul(u, g)
             ###
             next_state = (
-                current_state + (self.compute_f(current_state) + ug) * self.delta_t
+                current_state + (self.compute_f(current_state,stable_type) + ug) * self.delta_t
             )
         else:
-            next_state = current_state + self.compute_f(current_state) * self.delta_t
+            next_state = current_state + self.compute_f(current_state,stable_type) * self.delta_t
+
+        if self.max_value_clipping:
+            next_state = torch.clip(next_state, -self.max_state_value, self.max_state_value)
         return next_state
 
-    def simulate(self, init_state, batch_size, step, input_=None):
+    def simulate(self, init_state, batch_size, step, input_=None,stable_type=None):
         current_state = init_state
         state = []
         obs_generated = []
+        ####
         for t in range(step):
             ## simulating system
             if input_ is None:
-                next_state=self.simulate_one_step(current_state, None)
+                next_state=self.simulate_one_step(current_state, None,stable_type)
             else:
-                next_state=self.simulate_one_step(current_state, input_[:, t, :])
-            o = self.compute_h(current_state)
+                next_state=self.simulate_one_step(current_state, input_[:, t, :],stable_type)
+            o = self.compute_h(current_state,stable_type)
             ## saving time-point data
             obs_generated.append(o)
             state.append(current_state)

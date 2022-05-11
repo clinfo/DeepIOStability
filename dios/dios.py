@@ -165,6 +165,7 @@ def get_default_config():
 
 
 def run_train_mode(config, logger):
+
     logger.info("... loading data")
     all_data = load_data(mode="train", config=config, logger=logger)
     train_data, valid_data = all_data.split(1.0 - config["train_valid_ratio"])
@@ -181,6 +182,7 @@ def run_train_mode(config, logger):
     if torch.cuda.is_available():
         device = 'cuda'
         print("device: cuda")
+        torch.backends.cudnn.benchmark = True
     else:
         device = 'cpu'
         print("device: cpu")

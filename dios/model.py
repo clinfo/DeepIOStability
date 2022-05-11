@@ -134,7 +134,8 @@ class DiosSSM:
         validset = DiosDataset(valid_data, train=False)
         batch_size = config["batch_size"]
         validloader = DataLoader(
-            validset, batch_size=batch_size, shuffle=False, num_workers=4, timeout=20
+                validset, batch_size=batch_size, shuffle=False, num_workers=4, timeout=20,
+                pin_memory=True,
         )
 
         valid_loss_logger = LossLogger()
@@ -189,10 +190,12 @@ class DiosSSM:
         trainset = DiosDataset(train_data, train=True)
         validset = DiosDataset(valid_data, train=False)
         trainloader = DataLoader(
-            trainset, batch_size=batch_size, shuffle=True, num_workers=4, timeout=20
+            trainset, batch_size=batch_size, shuffle=True, num_workers=4, timeout=20,
+            pin_memory=True,
         )
         validloader = DataLoader(
-            validset, batch_size=batch_size, shuffle=False, num_workers=4, timeout=20
+            validset, batch_size=batch_size, shuffle=False, num_workers=4, timeout=20,
+            pin_memory=True,
         )
         
         if config["optimizer"]=="adam":
