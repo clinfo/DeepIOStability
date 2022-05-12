@@ -333,7 +333,12 @@ class SimpleSystem(torch.nn.Module):
             g(x) (tensor): batch  (x time) x input dimension x state dimension
         """
         if self.diag_g:
-            if len(x.shape) == 2:  # batch_size x state_dim
+            if len(x.shape) == 1:  # state_dim
+                g = self.func_g_vec(x)
+                temp = self._input_state_eye
+                temp = temp.reshape((self.input_dim, self.state_dim))
+                y = temp*g.reshape((self.input_dim, 1))
+            elif len(x.shape) == 2:  # batch_size x state_dim
                 g = self.func_g_vec(x)
                 temp = self._input_state_eye
                 temp = temp.reshape((1, self.input_dim, self.state_dim))
@@ -349,7 +354,9 @@ class SimpleSystem(torch.nn.Module):
                 print("error", x.shape)
             return y
         else:
-            if len(x.shape) == 2:  # batch_size x state_dim
+            if len(x.shape) == 1:  # state_dim
+                g = self.func_g(x).reshape((self.input_dim, self.state_dim))
+            elif len(x.shape) == 2:  # batch_size x state_dim
                 g = self.func_g(x).reshape((x.shape[0], self.input_dim, self.state_dim))
             elif len(x.shape) == 3:  # batch_size x time x state_dim
                 g = self.func_g(x).reshape(
