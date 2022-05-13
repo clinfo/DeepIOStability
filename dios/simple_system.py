@@ -566,7 +566,7 @@ class SimpleSystem(torch.nn.Module):
         #    g_new = torch.clip(g_new, -self.max_state_value, self.max_state_value)
         return g_new
 
-    def compute_h(self, x, stable_type):
+    def compute_h(self, x, stable_type=True):
         k2=1/2
         if stable_type is None:
             stable_type=self.stable_type
