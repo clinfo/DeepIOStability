@@ -115,6 +115,7 @@ def get_default_config():
     config["diag_g"]=True
     config["stable_type"] = "none" # "none", "f", "fg", "fgh"
     config["pretrain_epoch"] = 3
+    config["detach_proj"] = True
     
     config["weight_decay"] = 0.01
     config["hidden_layer_f"] = [32]
@@ -222,6 +223,7 @@ def run_train_mode(config, logger):
                 v_type=config["v_type"],
                 stable_type=config["stable_type"],
                 schedule_pretrain_epoch=config["pretrain_epoch"],
+                detach_proj=config["detach_proj"],
                 device=device
                 )
         # training NN from data
@@ -382,6 +384,7 @@ def run_pred_mode(config, logger):
             v_type=config["v_type"],
             stable_type=config["stable_type"],
             schedule_pretrain_epoch=config["pretrain_epoch"],
+            detach_proj=config["detach_proj"],
             device=device
             )
 
