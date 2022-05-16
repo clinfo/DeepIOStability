@@ -219,6 +219,7 @@ class SimpleSystem(torch.nn.Module):
         system_g_offset=0,
         system_g_positive=False,
         schedule_pretrain_epoch=3,
+        detach_proj=True,
         device=None,
     ):
         super(SimpleSystem, self).__init__()
@@ -232,6 +233,7 @@ class SimpleSystem(torch.nn.Module):
         self.schedule_alpha=alpha
         self.diag_g=diag_g
         self.device=device
+        self.detach_proj=detach_proj
 
         self.state_dim = state_dim
         self.input_dim = input_dim
@@ -507,21 +509,27 @@ class SimpleSystem(torch.nn.Module):
             dv_det = torch.sum(dv **2, dim=-1)+1.0e-10
             scale=F.relu(hj_dvf)/dv_det
             proj= dv * scale.unsqueeze(-1)
-            f_new= self.func_f(x) - proj#.detach()
+            if self.detach_proj:
+                proj=proj.detach()
+            f_new= self.func_f(x) - proj
         elif stable_type=="fgh":
             hj_dvf, v_g, v_h, dv = self.compute_scale_fgh(x)
             v_gh = v_g+v_h
             dv_det = torch.sum(dv **2, dim=-1)+1.0e-10
             scale = F.relu(hj_dvf+k2*v_gh)/dv_det
             proj = dv * scale.unsqueeze(-1)
-            f_new= self.func_f(x) - proj#.detach()
+            if self.detach_proj:
+                proj=proj.detach()
+            f_new= self.func_f(x) - proj
         elif stable_type=="fg":
             hj_dvf, v_g, v_h, dv = self.compute_scale_fgh(x)
             v_fh = hj_dvf+v_h
             dv_det = torch.sum(dv **2, dim=-1)+1.0e-10
             scale = F.relu(v_fh+k2*v_g)/dv_det
             proj = dv * scale.unsqueeze(-1)
-            f_new= self.func_f(x) - proj#.detach()
+            if self.detach_proj:
+                proj=proj.detach()
+            f_new= self.func_f(x) - proj
         else:
             ## standard
             f_new = self.func_f(x)
@@ -549,6 +557,8 @@ class SimpleSystem(torch.nn.Module):
             #print("pdv:",pdv.shape)
             #print("scale:",scale.shape)
             #print("proj:",proj.shape)
+            if self.detach_proj:
+                proj=proj.detach()
             g_new = g - proj#.detach()
         elif stable_type=="fg":
             g = self.func_g_mat(x)
@@ -559,6 +569,8 @@ class SimpleSystem(torch.nn.Module):
             scale = torch.sqrt(torch.clip(-v_fh/(v_g+1.0e-10),k2,1))
             scale = scale.unsqueeze(-1).unsqueeze(-1)
             proj = (1-scale)*torch.matmul(g,pdv)
+            if self.detach_proj:
+                proj=proj.detach()
             g_new = g - proj#.detach()
         else:
             g_new = self.func_g_mat(x)
@@ -585,7 +597,8 @@ class SimpleSystem(torch.nn.Module):
             h_hat = self.func_h(x)
             #print("h_star:",h_star.shape)
             #print("h_hat:",h_hat.shape)
-
+            if self.detach_proj:
+                scale=scale.detach()
             h_new = h_star+scale*(h_hat-h_star)
         else:
             h_new = self.func_h(x)

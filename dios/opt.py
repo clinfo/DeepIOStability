@@ -16,33 +16,35 @@ def objective(trial,src_config,args):
     #config["alpha_HJ"]     = 1.0- config["alpha_recons"]
     #config["alpha_gamma"] = trial.suggest_uniform("alpha_gamma", 0.0, 1.0)
     config["learning_rate"]= trial.suggest_float("learning_rate", 1e-5, 1e-3, log=True)
-    config["weight_decay"]= trial.suggest_float("weight_decay", 0, 1e-6, log=True)
+    config["weight_decay"]= trial.suggest_float("weight_decay", 1e-10, 1e-6, log=True)
     config["system_scale"]= trial.suggest_float("system_scale", 1.0e-5, 0.1, log=True)
     config["c"]            = trial.suggest_uniform("c", 0, 1.0)
     #config["v_type"] = trial.suggest_categorical('v_type', ['single','double','many'])
-    #activation = trial.suggest_categorical('activation', ['relu', 'sigmoid'])
-    #optimizer = trial.suggest_categorical('optimizer', ['sgd', 'adam', 'rmsprop'])
+    config["activation"] = trial.suggest_categorical('activation', ['relu', 'sigmoid'])
+    config["optimizer"] = trial.suggest_categorical('optimizer', ['adamw', 'adam', 'rmsprop'])
+    config["detach_proj"] = trial.suggest_categorical('detach_proj', [True, False])
+    
 
-    n_layer_f = trial.suggest_int('n_layer_f', 0, 5)
-    n_layer_g = trial.suggest_int('n_layer_g', 0, 5)
-    n_layer_h = trial.suggest_int('n_layer_h', 0, 5)
+    n_layer_f = trial.suggest_int('n_layer_f', 0, 3)
+    n_layer_g = trial.suggest_int('n_layer_g', 0, 3)
+    n_layer_h = trial.suggest_int('n_layer_h', 0, 3)
     hidden_layer_f=[]
     for i in range(n_layer_f):
-        ii = trial.suggest_int("hidden_layer_f_{:02d}".format(i), 16, 256)
+        ii = trial.suggest_int("hidden_layer_f_{:02d}".format(i), 8, 32)
         hidden_layer_f.append(ii)
     config["hidden_layer_f"]=hidden_layer_f
     hidden_layer_g=[]
     for i in range(n_layer_g):
-        ii = trial.suggest_int("hidden_layer_g_{:02d}".format(i), 16, 256)
+        ii = trial.suggest_int("hidden_layer_g_{:02d}".format(i), 8, 64)
         hidden_layer_g.append(ii)
     config["hidden_layer_g"]=hidden_layer_g
     hidden_layer_h=[]
     for i in range(n_layer_h):
-        ii = trial.suggest_int("hidden_layer_h_{:02d}".format(i), 16, 256)
+        ii = trial.suggest_int("hidden_layer_h_{:02d}".format(i), 8, 64)
         hidden_layer_h.append(ii)
     config["hidden_layer_h"]=hidden_layer_h
     #config["state_dim"]= trial.suggest_int("state_dim", 2, 16)
-    #config["batch_size"]= trial.suggest_int("batch_size", 100, 1000)
+    config["batch_size"]= trial.suggest_int("batch_size", 10, 300)
     ##
     os.makedirs(path,exist_ok=True)
     conf_path=args.study_name+"/"+name+"/config.json"
@@ -54,7 +56,7 @@ def objective(trial,src_config,args):
             indent=4,
             sort_keys=True,
         )
-    cmd=["dios","train","--config",conf_path]
+    cmd=["dios","train,test","--config",conf_path]
     if args.gpu:
         cmd+=["--gpu",args.gpu]
     print("[EXEC]",cmd)

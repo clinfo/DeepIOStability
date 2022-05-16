@@ -202,6 +202,10 @@ class DiosSSM:
             optimizer = optim.Adam(
                 self.system_model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"]
             )
+        elif config["optimizer"]=="adamw":
+            optimizer = optim.AdamW(
+                self.system_model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"]
+            )
         else:
             optimizer = optim.RMSprop(
                 self.system_model.parameters(), lr=config["learning_rate"], weight_decay=config["weight_decay"]
