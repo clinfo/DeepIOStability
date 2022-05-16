@@ -4,13 +4,12 @@
 	"data_test":"dataset/limit_cycle.test",
 	"v_type":"single_cycle",
 	"learning_rate":0.005,
-	"alpha_HJ":1.0,
-	"alpha_gamma":0.0,
+	"alpha_HJ":0.1,
+	"alpha_gamma":0.1,
 	"alpha_state":0.0,
-
     	"system_scale": 1.0,
 	"system_f_residual":false,
-    	"delta_t": 1.0,
+    	"delta_t": 0.1,
 	"hidden_layer_f": [
        		32
     	],

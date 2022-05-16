@@ -16,8 +16,8 @@ def objective(trial,src_config,args):
     #config["alpha_HJ"]     = 1.0- config["alpha_recons"]
     #config["alpha_gamma"] = trial.suggest_uniform("alpha_gamma", 0.0, 1.0)
     config["learning_rate"]= trial.suggest_float("learning_rate", 1e-5, 1e-3, log=True)
-    config["weight_decay"]= trial.suggest_float("weight_decay", 1e-6, 1e-2, log=True)
-    config["system_scale"]= trial.suggest_float("system_scale", 0.001, 0.1, log=True)
+    config["weight_decay"]= trial.suggest_float("weight_decay", 0, 1e-6, log=True)
+    config["system_scale"]= trial.suggest_float("system_scale", 1.0e-5, 0.1, log=True)
     config["c"]            = trial.suggest_uniform("c", 0, 1.0)
     #config["v_type"] = trial.suggest_categorical('v_type', ['single','double','many'])
     #activation = trial.suggest_categorical('activation', ['relu', 'sigmoid'])
@@ -66,7 +66,9 @@ def objective(trial,src_config,args):
         result_path=path+"/model/best.result.json"
         with open(result_path, "r") as fp:
             result=json.load(fp)
-        score=result["*valid-HJ"]+result["*valid-recons"]
+        #score=result["*valid-HJ"]+result["*valid-recons"]
+        #score=result["*valid-HJ"]+result["*valid-recons"]
+        score=result["valid-recons-loss"]
         #score=result["valid-loss"]
     except:
         score=1.0e10
