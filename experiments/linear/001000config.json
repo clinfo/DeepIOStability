@@ -1,0 +1,32 @@
+{
+    "activation": "relu",
+    "alpha_HJ": 0.01,
+    "alpha_gamma": 0.01,
+    "alpha_state": 0.0,
+    "batch_size": 30,
+    "c": 0.47467801878565835,
+    "data_test": "dataset/001000linear.test",
+    "data_train": "dataset/001000linear.train",
+    "detach_proj": false,
+    "epoch": 300,
+    "hidden_layer_f": [
+        27,
+        14
+    ],
+    "hidden_layer_g": [
+        44
+    ],
+    "hidden_layer_h": [
+        59
+    ],
+    "init_gamma": 2,
+    "init_state_mode": "true_state",
+    "learning_rate": 0.0009972009742908465,
+    "optimizer": "adam",
+    "pretrain_epoch": 0,
+    "result_path": "study/trial0056",
+    "stable_type": "fgh",
+    "state_dim": 2,
+    "system_scale": 0.011446856802151475,
+    "weight_decay": 2.4190959149690377e-08
+}

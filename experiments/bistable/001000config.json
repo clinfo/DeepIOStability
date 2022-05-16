@@ -1,0 +1,37 @@
+{
+    "activation": "relu",
+    "alpha_HJ": 0.01,
+    "alpha_gamma": 0.01,
+    "alpha_state": 0.0,
+    "batch_size": 100,
+    "c": 0.6361865105848729,
+    "data_test": "dataset/001000bistable.test",
+    "data_train": "dataset/001000bistable.train",
+    "delta_t": 0.1,
+    "detach_proj": false,
+    "epoch": 300,
+    "hidden_layer_f": [
+        17,
+        10,
+        22
+    ],
+    "hidden_layer_g": [
+        34
+    ],
+    "hidden_layer_h": [
+        10,
+        62,
+        58
+    ],
+    "init_state_mode": "true_state",
+    "learning_rate": 0.0003017190772179375,
+    "optimizer": "rmsprop",
+    "pretrain_epoch": 0,
+    "result_path": "study/trial0223",
+    "save_model_path": "model",
+    "stable_type": "fgh",
+    "state_dim": 1,
+    "system_scale": 0.09645996501055787,
+    "v_type": "double",
+    "weight_decay": 4.76297486592855e-09
+}
