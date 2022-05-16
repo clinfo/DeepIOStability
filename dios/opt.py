@@ -44,7 +44,7 @@ def objective(trial,src_config,args):
         hidden_layer_h.append(ii)
     config["hidden_layer_h"]=hidden_layer_h
     #config["state_dim"]= trial.suggest_int("state_dim", 2, 16)
-    config["batch_size"]= trial.suggest_int("batch_size", 10, 300)
+    config["batch_size"]= trial.suggest_int("batch_size", 10, 100)
     ##
     os.makedirs(path,exist_ok=True)
     conf_path=args.study_name+"/"+name+"/config.json"
