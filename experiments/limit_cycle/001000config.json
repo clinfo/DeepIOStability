@@ -1,0 +1,35 @@
+{
+    "activation": "relu",
+    "alpha_HJ": 0.1,
+    "alpha_gamma": 0.1,
+    "alpha_state": 0.0,
+    "batch_size": 100,
+    "c": 0.20268404228726056,
+    "data_test": "dataset/001000limit_cycle.test",
+    "data_train": "dataset/001000limit_cycle.train",
+    "delta_t": 0.1,
+    "detach_proj": true,
+    "epoch": 300,
+    "hidden_layer_f": [
+        30,
+        29,
+        11
+    ],
+    "hidden_layer_g": [],
+    "hidden_layer_h": [
+        27,
+        49,
+        59
+    ],
+    "init_state_mode": "true_state",
+    "learning_rate": 0.00022980153321845937,
+    "optimizer": "adam",
+    "pretrain_epoch": 0,
+    "result_path": "study/trial0114",
+    "stable_type": "fgh",
+    "state_dim": 2,
+    "system_f_residual": false,
+    "system_scale": 0.016284964354240566,
+    "v_type": "single_cycle",
+    "weight_decay": 3.803052328677969e-08
+}
