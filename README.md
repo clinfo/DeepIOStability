@@ -1,7 +1,5 @@
 # DeepIOStability
 
-### Google colaboratory/ Jupyter notebook
-https://colab.research.google.com/drive/1WQ-ICfVrrd_yJ_0LbRFw67Pypj3NhbMu?usp=sharing
 
 ### Requirements
 * python3 (> 3.3)
