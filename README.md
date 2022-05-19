@@ -56,3 +56,18 @@ $ dios-linear train --config config.json --method <method>
  - `ORT_auto`
  - `MOESP_auto`
  
+
+## Full experiments
+
+Our experimental results can be reproduced by executing the script in the directory `experiments/`.
+
+To make a command list, please run the following commands:
+```
+sh all4parallel.sh
+```
+
+Please execute the all commands in the two command lists:
+- `all4parallel_gpu.list` for GPU machines 
+- `all4parallel_cpu.list` for CPU machines
+
+
