@@ -70,4 +70,12 @@ Please execute the all commands in the two command lists:
 - `all4parallel_gpu.list` for GPU machines 
 - `all4parallel_cpu.list` for CPU machines
 
+## Hyperparameter tuning
 
+```
+dios-opt --config <config.json>
+```
+Using the Optuna library,
+this command execute a hypaparameter optimization based on a given config files.
+
+Our configuration files, obtained as a result of our hyperparameter tuning, put in `experiments/***/config001000.json`.
