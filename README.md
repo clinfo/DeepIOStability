@@ -17,42 +17,40 @@ conda install -c conda-forge optuna
 ### Anaconda install
 First, please install anaconda by the official anaconda instruction [https://conda.io/docs/user-guide/install/linux.html].
 
-### DeepIOStabilityインストール
+### Installation of DeepIOStability
 ```
 pip install git+https://github.com/clinfo/DeepIOStability.git
 ```
 
-## コマンド
-インストールするとdiosコマンドが使えるようになる
+## Command
+The `dios` command for training
 ```
 dios train --config <config file>
 ```
 
-validationデータからランダムにサンプルを選んでプロットする場合は、学習後にdios-plotを用いる
+The `dios` command for plotting, where the plot signals are selected from validation data at random by default. 
 ```
 dios-plot --config <config file>
 ```
 
 
-## サンプルの動かし方
+## Demo
 
-以下のコマンドで動かすことが可能です．
-
-### データの作成
+### Making a sample dataset
 ```
 $ cd sample02
 $ python make.py
 ```
-学習実行
+### Execution
 ```
 $ dios train --config config.json
 ```
 
-線形モデルの場合(比較用)
+#### linear model comparative method
 ```
 $ dios-linear train --config config.json --method <method>
 ```
-`<method>`部分にモデル同定手法を指定する
+`<method>` is selected from
  - `ORT`
  - `MOESP`
  - `ORT_auto`
